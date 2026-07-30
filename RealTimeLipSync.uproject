@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{B1AFC7D0-4682-9BF5-BAD0-CA8D6A004DAD}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "RealTimeLipSync",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
+		}
+	]
+}

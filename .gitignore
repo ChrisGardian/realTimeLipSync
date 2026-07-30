@@ -1,0 +1,30 @@
+# Visual Studio
+.vs/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Unreal Engine - dossiers générés (régénérables via l'éditeur/UBT)
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# Unreal Engine - fichiers de projet générés (régénérés via "Generate Visual Studio project files")
+*.VC.db
+*.xcodeproj
+*.xcworkspace
+
+# Rider / VSCode
+.idea/
+*.iws
+*.ipr
+*.iml
+.vscode/
+
+# Cache OSX
+.DS_Store
