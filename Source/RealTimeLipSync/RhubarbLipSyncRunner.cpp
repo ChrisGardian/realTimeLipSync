@@ -49,7 +49,7 @@ bool URhubarbLipSyncRunner::ExecuteRhubarbProcess(const FString& Args) const
 	}
 
 	uint32 ProcessId = 0;
-	const FProcHandle ProcHandle = FPlatformProcess::CreateProc(
+	FProcHandle ProcHandle = FPlatformProcess::CreateProc(
 		*RhubarbExecutablePath,
 		*Args,
 		/*bLaunchDetached*/ false,
