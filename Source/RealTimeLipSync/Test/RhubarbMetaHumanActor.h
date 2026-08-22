@@ -37,6 +37,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
 	FName LiveLinkSubjectName = TEXT("RhubarbLipSync");
 
+	// Vitesse de lissage (FInterpTo) entre les poids du visème courant et ceux du visème cible.
+	// Plus haut = transition plus rapide/plus proche du "pop" d'origine ; plus bas = plus lisse.
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
+	float VisemeInterpSpeed = 20.f;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -48,4 +53,5 @@ private:
 	TSharedPtr<FRhubarbLiveLinkSource> LiveLinkSource;
 	TArray<FRhubarbMouthCue> MouthCues;
 	float ElapsedPlaybackTime = 0.f;
+	TArray<float> CurrentCurveValues;
 };

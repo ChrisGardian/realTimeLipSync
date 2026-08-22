@@ -60,6 +60,7 @@ void ARhubarbMetaHumanActor::BeginPlay()
 	}
 
 	ElapsedPlaybackTime = 0.f;
+	CurrentCurveValues.Init(0.f, VisemeToArKitMapping::GetUsedCurveNames().Num());
 
 	ILiveLinkClient& Client = IModularFeatures::Get().GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
 	LiveLinkSource = MakeShared<FRhubarbLiveLinkSource>(LiveLinkSubjectName);
@@ -106,7 +107,13 @@ void ARhubarbMetaHumanActor::Tick(float DeltaTime)
 		}
 	}
 
-	TArray<float> CurveValues;
-	VisemeToArKitMapping::GetWeightsForViseme(CurrentViseme, CurveValues);
-	LiveLinkSource->PushCurveFrame(CurveValues);
+	TArray<float> TargetCurveValues;
+	VisemeToArKitMapping::GetWeightsForViseme(CurrentViseme, TargetCurveValues);
+
+	for (int32 Index = 0; Index < CurrentCurveValues.Num(); ++Index)
+	{
+		CurrentCurveValues[Index] = FMath::FInterpTo(CurrentCurveValues[Index], TargetCurveValues[Index], DeltaTime, VisemeInterpSpeed);
+	}
+
+	LiveLinkSource->PushCurveFrame(CurrentCurveValues);
 }
