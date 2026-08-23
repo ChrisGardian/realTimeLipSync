@@ -26,6 +26,24 @@ void ARhubarbMetaHumanActor::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (!IModularFeatures::Get().IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
+	{
+		UE_LOG(LogTemp, Error, TEXT("ARhubarbMetaHumanActor: LiveLink client modular feature not available"));
+		return;
+	}
+
+	ILiveLinkClient& Client = IModularFeatures::Get().GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
+	LiveLinkSource = MakeShared<FRhubarbLiveLinkSource>(LiveLinkSubjectName);
+	Client.AddSource(LiveLinkSource);
+	LiveLinkSource->DeclareSubject(VisemeToArKitMapping::GetUsedCurveNames());
+	CurrentCurveValues.Init(0.f, VisemeToArKitMapping::GetUsedCurveNames().Num());
+
+	if (bDebugMode)
+	{
+		// Pas d'audio ni de Rhubarb en mode debug : Tick() pousse directement les poids de calibrage.
+		return;
+	}
+
 	if (!SoundToPlay)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ARhubarbMetaHumanActor: SoundToPlay is not set"));
@@ -53,19 +71,7 @@ void ARhubarbMetaHumanActor::BeginPlay()
 		return;
 	}
 
-	if (!IModularFeatures::Get().IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
-	{
-		UE_LOG(LogTemp, Error, TEXT("ARhubarbMetaHumanActor: LiveLink client modular feature not available"));
-		return;
-	}
-
 	ElapsedPlaybackTime = 0.f;
-	CurrentCurveValues.Init(0.f, VisemeToArKitMapping::GetUsedCurveNames().Num());
-
-	ILiveLinkClient& Client = IModularFeatures::Get().GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
-	LiveLinkSource = MakeShared<FRhubarbLiveLinkSource>(LiveLinkSubjectName);
-	Client.AddSource(LiveLinkSource);
-	LiveLinkSource->DeclareSubject(VisemeToArKitMapping::GetUsedCurveNames());
 
 	AudioPlayback->SetSound(SoundToPlay);
 	AudioPlayback->Play();
@@ -89,18 +95,66 @@ void ARhubarbMetaHumanActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (MouthCues.Num() == 0 || !LiveLinkSource.IsValid())
+	if (!LiveLinkSource.IsValid())
+	{
+		return;
+	}
+
+	if (bDebugMode)
+	{
+		TArray<float> DebugCurveValues;
+		if (bDebugUseManualWeights)
+		{
+			DebugCurveValues = {
+				DebugWeight_JawOpen,
+				DebugWeight_MouthClose,
+				DebugWeight_MouthFunnel,
+				DebugWeight_MouthPucker,
+				DebugWeight_MouthRollLower,
+				DebugWeight_MouthUpperUpLeft,
+				DebugWeight_MouthUpperUpRight,
+				DebugWeight_TongueOut,
+				DebugWeight_MouthLowerDownLeft,
+				DebugWeight_MouthLowerDownRight,
+				DebugWeight_MouthShrugLower,
+				DebugWeight_MouthShrugUpper,
+				DebugWeight_CheekPuff,
+				DebugWeight_MouthPressLeft,
+				DebugWeight_MouthPressRight,
+			};
+		}
+		else
+		{
+			VisemeToArKitMapping::GetWeightsForViseme(DebugForcedViseme, DebugCurveValues);
+		}
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Cyan, bDebugUseManualWeights
+				? TEXT("Debug: manual weights")
+				: FString::Printf(TEXT("Debug: forced viseme %s"), *DebugForcedViseme));
+		}
+
+		// Pas d'interpolation ici : on veut voir l'effet exact des sliders, sans lissage.
+		LiveLinkSource->PushCurveFrame(DebugCurveValues);
+		return;
+	}
+
+	if (MouthCues.Num() == 0)
 	{
 		return;
 	}
 
 	ElapsedPlaybackTime += DeltaTime;
 
-	// Visème actif à l'instant courant ; "X" (idle/neutre) si on est entre deux cues ou après la dernière.
+	// Temps utilisé pour chercher le cue, décalé par rapport au temps de lecture audio réel
+	// (voir LipSyncDelaySeconds). Avant l'instant 0 ou après la dernière cue -> "X" (idle/neutre).
+	const float VisemeSampleTime = ElapsedPlaybackTime - LipSyncDelaySeconds;
+
 	FString CurrentViseme = TEXT("X");
 	for (const FRhubarbMouthCue& Cue : MouthCues)
 	{
-		if (ElapsedPlaybackTime >= Cue.Start && ElapsedPlaybackTime < Cue.End)
+		if (VisemeSampleTime >= Cue.Start && VisemeSampleTime < Cue.End)
 		{
 			CurrentViseme = Cue.Value;
 			break;
