@@ -120,18 +120,16 @@ void ADynamicSpeechTestActor::ProcessIncomingAudioChunk(const TArray<uint8>& Wav
 		return;
 	}
 
-	USoundWaveProcedural* SoundWave = NewObject<USoundWaveProcedural>(this);
+	// Construit le clip mais ne le joue pas tout de suite : Rhubarb (ci-dessous) tourne en async et
+	// met un temps variable à finir, donc démarrer Play() ici désynchroniserait audio et visèmes.
+	// Les deux ne démarrent qu'ensemble, une fois les mouth cues prêtes (voir callback plus bas).
+	TStrongObjectPtr<USoundWaveProcedural> SoundWave(NewObject<USoundWaveProcedural>());
 	SoundWave->SetSampleRate(*WaveInfo.pSamplesPerSec);
 	SoundWave->NumChannels = *WaveInfo.pChannels;
 	SoundWave->Duration = static_cast<float>(WaveInfo.SampleDataSize) / static_cast<float>(*WaveInfo.pAvgBytesPerSec);
 	SoundWave->QueueAudio(WaveInfo.SampleDataStart, WaveInfo.SampleDataSize);
 
-	MouthCues.Reset();
-	ElapsedPlaybackTime = 0.f;
-	AudioPlayback->SetSound(SoundWave);
-	AudioPlayback->Play();
-
-	UE_LOG(LogTemp, Log, TEXT("DynamicSpeechTestActor: playing runtime clip (%d Hz, %d ch, %.2fs)"),
+	UE_LOG(LogTemp, Log, TEXT("DynamicSpeechTestActor: clip ready (%d Hz, %d ch, %.2fs), waiting for Rhubarb before playback"),
 		*WaveInfo.pSamplesPerSec, *WaveInfo.pChannels, SoundWave->Duration);
 
 	// --- Visèmes : écrire en fichier temporaire et lancer Rhubarb hors game thread (brique validée).
@@ -151,12 +149,12 @@ void ADynamicSpeechTestActor::ProcessIncomingAudioChunk(const TArray<uint8>& Wav
 	TStrongObjectPtr<URhubarbLipSyncRunner> Runner(NewObject<URhubarbLipSyncRunner>());
 	TWeakObjectPtr<ADynamicSpeechTestActor> WeakThis(this);
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [Runner, TempWavPath, WeakThis]()
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [Runner, TempWavPath, WeakThis, SoundWave]()
 	{
 		TArray<FRhubarbMouthCue> ResultMouthCues;
 		const bool bSuccess = Runner->RunOnAudioFile(TempWavPath, ResultMouthCues);
 
-		AsyncTask(ENamedThreads::GameThread, [bSuccess, ResultMouthCues, WeakThis]()
+		AsyncTask(ENamedThreads::GameThread, [bSuccess, ResultMouthCues, WeakThis, SoundWave]()
 		{
 			ADynamicSpeechTestActor* Actor = WeakThis.Get();
 			if (!Actor)
@@ -177,9 +175,12 @@ void ADynamicSpeechTestActor::ProcessIncomingAudioChunk(const TArray<uint8>& Wav
 				UE_LOG(LogTemp, Log, TEXT("  [%.2f - %.2f] %s"), Cue.Start, Cue.End, *Cue.Value);
 			}
 
-			// Rearme le driver de timing du Tick : les visèmes commencent à être poussés via LiveLink
-			// à partir d'ici, avec le retard éventuel accumulé depuis Play() (voir TODO.md, limitation connue).
+			// Visèmes et audio démarrent ensemble, ici seulement : c'est ce qui garantit la synchro
+			// (voir le commentaire plus haut sur pourquoi Play() n'est pas appelé plus tôt).
 			Actor->MouthCues = ResultMouthCues;
+			Actor->ElapsedPlaybackTime = 0.f;
+			Actor->AudioPlayback->SetSound(SoundWave.Get());
+			Actor->AudioPlayback->Play();
 		});
 	});
 }
