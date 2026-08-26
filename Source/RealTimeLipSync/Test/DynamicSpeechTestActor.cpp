@@ -157,8 +157,9 @@ void ADynamicSpeechTestActor::ProcessIncomingAudioChunk(const TArray<uint8>& Wav
 	// lancé hors game thread pour ne pas geler l'éditeur pendant l'analyse.
 	TStrongObjectPtr<URhubarbLipSyncRunner> Runner(NewObject<URhubarbLipSyncRunner>());
 	TWeakObjectPtr<ADynamicSpeechTestActor> WeakThis(this);
+	const bool bKeepFiles = bKeepTempAudio;
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [Runner, TempWavPath, WeakThis, SoundWave, Trace, Source]() mutable
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [Runner, TempWavPath, WeakThis, SoundWave, Trace, Source, bKeepFiles]() mutable
 	{
 		Trace.BackgroundTaskStarted = FPlatformTime::Seconds();
 
@@ -167,9 +168,14 @@ void ADynamicSpeechTestActor::ProcessIncomingAudioChunk(const TArray<uint8>& Wav
 		Trace.RhubarbFinished = FPlatformTime::Seconds();
 
 		// Le WAV temporaire et son JSON (mouth cues déjà parsées ci-dessus) ne servent plus une fois
-		// Rhubarb terminé, succès ou non : on les efface pour ne pas accumuler indéfiniment dans Saved/.
-		IFileManager::Get().Delete(*TempWavPath);
-		IFileManager::Get().Delete(*FPaths::SetExtension(TempWavPath, TEXT("json")));
+		// Rhubarb terminé, succès ou non : on les efface pour ne pas accumuler indéfiniment dans Saved/,
+		// sauf si bKeepTempAudio est coché (réutilisation via TestWavPath + SimulateIncomingChunk, pour
+		// éviter de refaire un appel ElevenLabs à chaque test/vidéo).
+		if (!bKeepFiles)
+		{
+			IFileManager::Get().Delete(*TempWavPath);
+			IFileManager::Get().Delete(*FPaths::SetExtension(TempWavPath, TEXT("json")));
+		}
 
 		AsyncTask(ENamedThreads::GameThread, [bSuccess, ResultMouthCues, WeakThis, SoundWave, Trace, Source]() mutable
 		{

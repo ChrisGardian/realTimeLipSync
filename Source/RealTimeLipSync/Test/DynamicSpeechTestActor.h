@@ -77,7 +77,13 @@ public:
 
 	// Texte envoyé à /api/v1/ai/tts pour ce test.
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Backend")
-	FString TextToSpeak = TEXT("Hello this is a Test. It is a test for a dynamic text to speech Lipsyncproject.");
+	FString TextToSpeak = TEXT("The mysterious professor whispered quietly at first, then suddenly shouted with joy, waving his umbrella boldly above his head. He had wandered through the foggy old library for hours, mumbling strange words under his breath, before finally discovering a dusty book that promised to reveal the secret that had baffled the entire village for almost thirty years. Overwhelmed with excitement, he rushed outside, laughing and shouting, determined to tell the whole world before another rival scholar could steal the glory.");
+
+	// Si true, le .wav temporaire et son .json Rhubarb ne sont pas effacés après usage (voir
+	// ProcessIncomingAudioChunk) : utile pour réutiliser un audio déjà généré (via TestWavPath +
+	// SimulateIncomingChunk) sans refaire d'appel ElevenLabs à chaque test/vidéo.
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Test")
+	bool bKeepTempAudio = false;
 
 	// Récupère une session (sid+secret, mise en cache pour les appels suivants si besoin),
 	// signe et envoie GET /api/v1/ai/tts?q=...&fmt=wav, puis alimente ProcessIncomingAudioChunk
