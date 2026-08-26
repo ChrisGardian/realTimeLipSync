@@ -166,6 +166,11 @@ void ADynamicSpeechTestActor::ProcessIncomingAudioChunk(const TArray<uint8>& Wav
 		const bool bSuccess = Runner->RunOnAudioFile(TempWavPath, ResultMouthCues);
 		Trace.RhubarbFinished = FPlatformTime::Seconds();
 
+		// Le WAV temporaire et son JSON (mouth cues déjà parsées ci-dessus) ne servent plus une fois
+		// Rhubarb terminé, succès ou non : on les efface pour ne pas accumuler indéfiniment dans Saved/.
+		IFileManager::Get().Delete(*TempWavPath);
+		IFileManager::Get().Delete(*FPaths::SetExtension(TempWavPath, TEXT("json")));
+
 		AsyncTask(ENamedThreads::GameThread, [bSuccess, ResultMouthCues, WeakThis, SoundWave, Trace, Source]() mutable
 		{
 			Trace.GameThreadTaskStarted = FPlatformTime::Seconds();
