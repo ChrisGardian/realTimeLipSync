@@ -10,6 +10,23 @@
 class UAudioComponent;
 class FRhubarbLiveLinkSource;
 
+// Timestamps (FPlatformTime::Seconds(), horloge monotone) posés à chaque étape du pipeline
+// "packet reçu -> animation démarrée", pour mesurer les budgets de latence de calcul (thèse,
+// voir AppendLatencySample). RequestSent/ResponseReceived restent à 0 pour SimulateIncomingChunk
+// (pas de requête réseau dans ce chemin) : AppendLatencySample laisse la colonne réseau vide.
+struct FLatencyTrace
+{
+	double RequestSent = 0.0;
+	double ResponseReceived = 0.0;
+	double ChunkReceived = 0.0;
+	double WavParsed = 0.0;
+	double TempFileWritten = 0.0;
+	double BackgroundTaskStarted = 0.0;
+	double RhubarbFinished = 0.0;
+	double GameThreadTaskStarted = 0.0;
+	double PlayStarted = 0.0;
+};
+
 // Actor de test Phase 2a : simule la réception d'un chunk audio envoyé par le backend
 // (bouton editor chargeant un .wav local en mémoire) pour valider le pipeline côté client
 // indépendamment du HTTP. ProcessIncomingAudioChunk est le même point d'entrée qu'utilisera
@@ -81,11 +98,18 @@ private:
 	// des octets WAV (USoundWaveProcedural, pas d'asset importé) et le joue, puis écrit les octets
 	// en fichier temporaire et lance Rhubarb sur un thread background (process bloquant). Les mouth
 	// cues obtenues réarment ElapsedPlaybackTime/MouthCues, lus par Tick() pour piloter le LiveLink.
-	void ProcessIncomingAudioChunk(const TArray<uint8>& WavBytes);
+	// Trace est complétée au fil du pipeline puis journalisée (voir AppendLatencySample) une fois
+	// l'animation démarrée ; Source identifie l'appelant ("Simulate" ou "Backend") dans le CSV.
+	void ProcessIncomingAudioChunk(const TArray<uint8>& WavBytes, FLatencyTrace Trace, const FString& Source);
 
 	// Signe et envoie la requête GET /api/v1/ai/tts une fois sid+secret disponibles (CachedSid/
 	// CachedSecretHex déjà remplis par RequestSpeechFromBackend).
 	void SendSignedTtsRequest();
+
+	// Append une ligne dans Saved/DynamicSpeech/latency_log.csv (un delta en ms par étape du
+	// pipeline, colonne réseau vide si Trace.RequestSent/ResponseReceived valent 0). Écrit l'en-tête
+	// si le fichier n'existe pas encore.
+	void AppendLatencySample(const FLatencyTrace& Trace, const FString& Source);
 
 	TSharedPtr<FRhubarbLiveLinkSource> LiveLinkSource;
 	TArray<FRhubarbMouthCue> MouthCues;
