@@ -85,6 +85,11 @@ void ADynamicSpeechTestActor::Tick(float DeltaTime)
 		}
 	}
 
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Yellow, FString::Printf(TEXT("Viseme: %s"), *CurrentViseme));
+	}
+
 	TArray<float> TargetCurveValues;
 	VisemeToArKitMapping::GetWeightsForViseme(CurrentViseme, TargetCurveValues);
 
