@@ -53,6 +53,22 @@ public:
 	UFUNCTION(CallInEditor, Category = "RhubarbLipSync|Test")
 	void SimulateIncomingChunk();
 
+	// Racine du middleware PHP (scheme+host, sans /api/v1) — à adapter à l'endroit où tourne
+	// le backend de test (ex: "http://localhost:8080" pour `php -S`, ou l'hôte réel).
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Backend")
+	FString BackendBaseUrl = TEXT("http://localhost:8080");
+
+	// Texte envoyé à /api/v1/ai/tts pour ce test.
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Backend")
+	FString TextToSpeak = TEXT("Hello this is a Test. It is a test for a dynamic text to speech Lipsyncproject.");
+
+	// Récupère une session (sid+secret, mise en cache pour les appels suivants si besoin),
+	// signe et envoie GET /api/v1/ai/tts?q=...&fmt=wav, puis alimente ProcessIncomingAudioChunk
+	// avec le corps de la réponse — même point d'entrée que SimulateIncomingChunk, seule la
+	// source des octets change (réseau au lieu d'un fichier local).
+	UFUNCTION(CallInEditor, Category = "RhubarbLipSync|Backend")
+	void RequestSpeechFromBackend();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -67,8 +83,18 @@ private:
 	// cues obtenues réarment ElapsedPlaybackTime/MouthCues, lus par Tick() pour piloter le LiveLink.
 	void ProcessIncomingAudioChunk(const TArray<uint8>& WavBytes);
 
+	// Signe et envoie la requête GET /api/v1/ai/tts une fois sid+secret disponibles (CachedSid/
+	// CachedSecretHex déjà remplis par RequestSpeechFromBackend).
+	void SendSignedTtsRequest();
+
 	TSharedPtr<FRhubarbLiveLinkSource> LiveLinkSource;
 	TArray<FRhubarbMouthCue> MouthCues;
 	float ElapsedPlaybackTime = 0.f;
 	TArray<float> CurrentCurveValues;
+
+	// Session HMAC mise en cache après le premier appel réussi à RequestSession, pour éviter de
+	// refaire /session/id + /session/secret à chaque clic du bouton de test.
+	FString CachedSid;
+	FString CachedSecretHex;
+	bool bHasSession = false;
 };

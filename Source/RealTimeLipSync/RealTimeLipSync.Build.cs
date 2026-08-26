@@ -15,11 +15,12 @@ public class RealTimeLipSync : ModuleRules
 			ModuleDirectory + "/Rhubarb",
 			ModuleDirectory + "/FaceDriver",
 			ModuleDirectory + "/Test",
+			ModuleDirectory + "/Http",
 		});
 
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "Json", "JsonUtilities", "LiveLinkInterface" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json", "JsonUtilities", "LiveLinkInterface", "HTTP" });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
