@@ -29,8 +29,7 @@ Saved/
 # Cache OSX
 .DS_Store
 
-CLAUDE.md
-TODO.md
+*.md
 
 # Wrapper scripts (chemins absolus propres à cette machine)
 Scripts/

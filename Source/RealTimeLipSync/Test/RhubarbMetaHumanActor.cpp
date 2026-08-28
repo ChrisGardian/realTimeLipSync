@@ -5,38 +5,15 @@
 #include "Components/AudioComponent.h"
 #include "RhubarbLiveLinkSource.h"
 #include "VisemeToArKitMapping.h"
-#include "Features/IModularFeatures.h"
-#include "ILiveLinkClient.h"
 #include "Sound/SoundWave.h"
 
 #if WITH_EDITORONLY_DATA
 #include "EditorFramework/AssetImportData.h"
 #endif
 
-ARhubarbMetaHumanActor::ARhubarbMetaHumanActor()
-{
-	PrimaryActorTick.bCanEverTick = true;
-
-	AudioPlayback = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioPlayback"));
-	RootComponent = AudioPlayback;
-	AudioPlayback->bAutoActivate = false;
-}
-
 void ARhubarbMetaHumanActor::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (!IModularFeatures::Get().IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
-	{
-		UE_LOG(LogTemp, Error, TEXT("ARhubarbMetaHumanActor: LiveLink client modular feature not available"));
-		return;
-	}
-
-	ILiveLinkClient& Client = IModularFeatures::Get().GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
-	LiveLinkSource = MakeShared<FRhubarbLiveLinkSource>(LiveLinkSubjectName);
-	Client.AddSource(LiveLinkSource);
-	LiveLinkSource->DeclareSubject(VisemeToArKitMapping::GetUsedCurveNames());
-	CurrentCurveValues.Init(0.f, VisemeToArKitMapping::GetUsedCurveNames().Num());
 
 	if (bDebugMode)
 	{
@@ -77,31 +54,19 @@ void ARhubarbMetaHumanActor::BeginPlay()
 	AudioPlayback->Play();
 }
 
-void ARhubarbMetaHumanActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
-{
-	if (LiveLinkSource.IsValid())
-	{
-		if (IModularFeatures::Get().IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
-		{
-			IModularFeatures::Get().GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName).RemoveSource(LiveLinkSource);
-		}
-		LiveLinkSource.Reset();
-	}
-
-	Super::EndPlay(EndPlayReason);
-}
-
 void ARhubarbMetaHumanActor::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
-
-	if (!LiveLinkSource.IsValid())
-	{
-		return;
-	}
-
 	if (bDebugMode)
 	{
+		// Tourne indépendamment de la logique commune (pas de lissage, pas de blink, pas de MouthCues) :
+		// on saute ARhubarbFaceActorBase::Tick, mais AActor::Tick doit quand même s'exécuter.
+		AActor::Tick(DeltaTime);
+
+		if (!LiveLinkSource.IsValid())
+		{
+			return;
+		}
+
 		TArray<float> DebugCurveValues;
 		if (bDebugUseManualWeights)
 		{
@@ -128,6 +93,12 @@ void ARhubarbMetaHumanActor::Tick(float DeltaTime)
 			VisemeToArKitMapping::GetWeightsForViseme(DebugForcedViseme, DebugCurveValues);
 		}
 
+		// Pas de blink en mode debug : l'outil de calibrage doit rester figé sur les sliders manuels.
+		for (int32 Index = 0; Index < FIdleFaceAnimator::GetCurveNames().Num(); ++Index)
+		{
+			DebugCurveValues.Add(0.f);
+		}
+
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Cyan, bDebugUseManualWeights
@@ -140,39 +111,5 @@ void ARhubarbMetaHumanActor::Tick(float DeltaTime)
 		return;
 	}
 
-	if (MouthCues.Num() == 0)
-	{
-		return;
-	}
-
-	ElapsedPlaybackTime += DeltaTime;
-
-	// Temps utilisé pour chercher le cue, décalé par rapport au temps de lecture audio réel
-	// (voir LipSyncDelaySeconds). Avant l'instant 0 ou après la dernière cue -> "X" (idle/neutre).
-	const float VisemeSampleTime = ElapsedPlaybackTime - LipSyncDelaySeconds;
-
-	FString CurrentViseme = TEXT("X");
-	for (const FRhubarbMouthCue& Cue : MouthCues)
-	{
-		if (VisemeSampleTime >= Cue.Start && VisemeSampleTime < Cue.End)
-		{
-			CurrentViseme = Cue.Value;
-			break;
-		}
-	}
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Yellow, FString::Printf(TEXT("Viseme: %s"), *CurrentViseme));
-	}
-
-	TArray<float> TargetCurveValues;
-	VisemeToArKitMapping::GetWeightsForViseme(CurrentViseme, TargetCurveValues);
-
-	for (int32 Index = 0; Index < CurrentCurveValues.Num(); ++Index)
-	{
-		CurrentCurveValues[Index] = FMath::FInterpTo(CurrentCurveValues[Index], TargetCurveValues[Index], DeltaTime, VisemeInterpSpeed);
-	}
-
-	LiveLinkSource->PushCurveFrame(CurrentCurveValues);
+	Super::Tick(DeltaTime);
 }

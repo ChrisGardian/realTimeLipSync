@@ -5,100 +5,20 @@
 #include "Async/Async.h"
 #include "Audio.h"
 #include "Components/AudioComponent.h"
-#include "Features/IModularFeatures.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformTime.h"
 #include "HttpModule.h"
-#include "ILiveLinkClient.h"
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
 #include "MiddlewareAuthClient.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "RhubarbLiveLinkSource.h"
 #include "Sound/SoundWaveProcedural.h"
 #include "UObject/StrongObjectPtr.h"
-#include "VisemeToArKitMapping.h"
 
 ADynamicSpeechTestActor::ADynamicSpeechTestActor()
 {
-	PrimaryActorTick.bCanEverTick = true;
-
-	AudioPlayback = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioPlayback"));
-	RootComponent = AudioPlayback;
-	AudioPlayback->bAutoActivate = false;
-}
-
-void ADynamicSpeechTestActor::BeginPlay()
-{
-	Super::BeginPlay();
-
-	if (!IModularFeatures::Get().IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
-	{
-		UE_LOG(LogTemp, Error, TEXT("DynamicSpeechTestActor: LiveLink client modular feature not available"));
-		return;
-	}
-
-	ILiveLinkClient& Client = IModularFeatures::Get().GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
-	LiveLinkSource = MakeShared<FRhubarbLiveLinkSource>(LiveLinkSubjectName);
-	Client.AddSource(LiveLinkSource);
-	LiveLinkSource->DeclareSubject(VisemeToArKitMapping::GetUsedCurveNames());
-	CurrentCurveValues.Init(0.f, VisemeToArKitMapping::GetUsedCurveNames().Num());
-}
-
-void ADynamicSpeechTestActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
-{
-	if (LiveLinkSource.IsValid())
-	{
-		if (IModularFeatures::Get().IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
-		{
-			IModularFeatures::Get().GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName).RemoveSource(LiveLinkSource);
-		}
-		LiveLinkSource.Reset();
-	}
-
-	Super::EndPlay(EndPlayReason);
-}
-
-void ADynamicSpeechTestActor::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	if (!LiveLinkSource.IsValid() || MouthCues.Num() == 0)
-	{
-		return;
-	}
-
-	ElapsedPlaybackTime += DeltaTime;
-
-	// Temps utilisé pour chercher le cue, décalé par rapport au temps de lecture audio réel
-	// (voir LipSyncDelaySeconds). Avant l'instant 0 ou après la dernière cue -> "X" (idle/neutre).
-	const float VisemeSampleTime = ElapsedPlaybackTime - LipSyncDelaySeconds;
-
-	FString CurrentViseme = TEXT("X");
-	for (const FRhubarbMouthCue& Cue : MouthCues)
-	{
-		if (VisemeSampleTime >= Cue.Start && VisemeSampleTime < Cue.End)
-		{
-			CurrentViseme = Cue.Value;
-			break;
-		}
-	}
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Yellow, FString::Printf(TEXT("Viseme: %s"), *CurrentViseme));
-	}
-
-	TArray<float> TargetCurveValues;
-	VisemeToArKitMapping::GetWeightsForViseme(CurrentViseme, TargetCurveValues);
-
-	for (int32 Index = 0; Index < CurrentCurveValues.Num(); ++Index)
-	{
-		CurrentCurveValues[Index] = FMath::FInterpTo(CurrentCurveValues[Index], TargetCurveValues[Index], DeltaTime, VisemeInterpSpeed);
-	}
-
-	LiveLinkSource->PushCurveFrame(CurrentCurveValues);
+	LipSyncDelaySeconds = 0.3f;
 }
 
 void ADynamicSpeechTestActor::SimulateIncomingChunk()
