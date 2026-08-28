@@ -57,41 +57,48 @@ void ARhubarbFaceActorBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (!LiveLinkSource.IsValid() || MouthCues.Num() == 0)
+	if (!LiveLinkSource.IsValid())
 	{
 		return;
 	}
 
-	ElapsedPlaybackTime += DeltaTime;
-
-	// Temps utilisé pour chercher le cue, décalé par rapport au temps de lecture audio réel
-	// (voir LipSyncDelaySeconds). Avant l'instant 0 ou après la dernière cue -> "X" (idle/neutre).
-	const float VisemeSampleTime = ElapsedPlaybackTime - LipSyncDelaySeconds;
-
-	FString CurrentViseme = TEXT("X");
-	for (const FRhubarbMouthCue& Cue : MouthCues)
+	// Échantillonnage des visèmes : seulement une fois qu'un audio a été traité (MouthCues rempli).
+	// Avant ça, les curves de bouche restent à leur valeur initiale (0, bouche neutre) — mais l'idle
+	// animation plus bas continue de tourner dès BeginPlay, pas seulement pendant la lecture d'un son.
+	if (MouthCues.Num() > 0)
 	{
-		if (VisemeSampleTime >= Cue.Start && VisemeSampleTime < Cue.End)
+		ElapsedPlaybackTime += DeltaTime;
+
+		// Temps utilisé pour chercher le cue, décalé par rapport au temps de lecture audio réel
+		// (voir LipSyncDelaySeconds). Avant l'instant 0 ou après la dernière cue -> "X" (idle/neutre).
+		const float VisemeSampleTime = ElapsedPlaybackTime - LipSyncDelaySeconds;
+
+		FString CurrentViseme = TEXT("X");
+		for (const FRhubarbMouthCue& Cue : MouthCues)
 		{
-			CurrentViseme = Cue.Value;
-			break;
+			if (VisemeSampleTime >= Cue.Start && VisemeSampleTime < Cue.End)
+			{
+				CurrentViseme = Cue.Value;
+				break;
+			}
+		}
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Yellow, FString::Printf(TEXT("Viseme: %s"), *CurrentViseme));
+		}
+
+		TArray<float> TargetCurveValues;
+		VisemeToArKitMapping::GetWeightsForViseme(CurrentViseme, TargetCurveValues);
+
+		for (int32 Index = 0; Index < TargetCurveValues.Num(); ++Index)
+		{
+			CurrentCurveValues[Index] = FMath::FInterpTo(CurrentCurveValues[Index], TargetCurveValues[Index], DeltaTime, VisemeInterpSpeed);
 		}
 	}
 
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Yellow, FString::Printf(TEXT("Viseme: %s"), *CurrentViseme));
-	}
-
-	TArray<float> TargetCurveValues;
-	VisemeToArKitMapping::GetWeightsForViseme(CurrentViseme, TargetCurveValues);
-
-	for (int32 Index = 0; Index < TargetCurveValues.Num(); ++Index)
-	{
-		CurrentCurveValues[Index] = FMath::FInterpTo(CurrentCurveValues[Index], TargetCurveValues[Index], DeltaTime, VisemeInterpSpeed);
-	}
-
-	// Idle animation : indépendant du lissage des visèmes ci-dessus, écrit directement les derniers
+	// Idle animation : tourne dès que le subject LiveLink existe, indépendamment de MouthCues, pour
+	// que le NPC ne reste pas figé avant le premier son (voir TODO.md). Écrit directement les derniers
 	// éléments de CurrentCurveValues (voir FIdleFaceAnimator::WriteCurveValues).
 	FIdleFaceAnimationSettings IdleSettings;
 	IdleSettings.MinBlinkInterval = MinBlinkInterval;
