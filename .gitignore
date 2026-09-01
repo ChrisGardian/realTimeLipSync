@@ -31,7 +31,7 @@ Saved/
 
 *.md
 !LAMP-SETUP-README.md
-!UNREAL-CLIENT-README.md
+!README.md
 
 # Wrapper scripts (chemins absolus propres à cette machine)
 Scripts/
