@@ -9,6 +9,8 @@
 #include "RhubarbFaceActorBase.generated.h"
 
 class UAudioComponent;
+class USkeletalMeshComponent;
+class UAnimSequence;
 class FRhubarbLiveLinkSource;
 
 // Timestamps (FPlatformTime::Seconds(), horloge monotone) posés à chaque étape du pipeline "packet
@@ -85,6 +87,17 @@ public:
 	// ElevenLabs à chaque test/vidéo (voir ADynamicSpeechTestActor::TestWavPath).
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
 	bool bKeepTempAudio = false;
+
+	// Actor MetaHuman placé dans le niveau (BP_Ada/BP_Taro) dont on veut animer le corps. Cet actor
+	// C++ ne contient pas lui-même le mesh -- il ne fait que pousser des curves LiveLink vers le
+	// MetaHuman -- donc la référence se fait par assignation dans le Details panel du niveau.
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Body")
+	AActor* BodyActor = nullptr;
+
+	// Idle animation légère (Mixamo retargetée) jouée en boucle sur le component "Body" de BodyActor
+	// dès BeginPlay, comme le blink -- pas de logique de génération, juste un clip qui tourne.
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Body")
+	UAnimSequence* IdleBodyAnimation = nullptr;
 
 protected:
 	// Crée la source LiveLink et déclare le subject (curves bouche + idle animation). Les sous-classes

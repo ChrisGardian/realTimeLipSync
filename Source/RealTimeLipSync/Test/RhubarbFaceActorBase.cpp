@@ -5,6 +5,7 @@
 #include "Async/Async.h"
 #include "Audio.h"
 #include "Components/AudioComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "RhubarbLiveLinkSource.h"
 #include "VisemeToArKitMapping.h"
 #include "Features/IModularFeatures.h"
@@ -45,6 +46,35 @@ void ARhubarbFaceActorBase::BeginPlay()
 	AllCurveNames.Append(FIdleFaceAnimator::GetCurveNames());
 	LiveLinkSource->DeclareSubject(AllCurveNames);
 	CurrentCurveValues.Init(0.f, AllCurveNames.Num());
+
+	// Idle body animation : démarre dès BeginPlay, comme le blink, pour que le NPC ne reste pas figé
+	// avant le premier son. BodyActor a deux USkeletalMeshComponent (Face + Body) -- on filtre par nom
+	// pour ne pas jouer l'anim sur le mauvais component.
+	if (BodyActor && IdleBodyAnimation)
+	{
+		TArray<USkeletalMeshComponent*> SkeletalMeshComponents;
+		BodyActor->GetComponents(SkeletalMeshComponents);
+
+		USkeletalMeshComponent* BodyMesh = nullptr;
+		for (USkeletalMeshComponent* Component : SkeletalMeshComponents)
+		{
+			if (Component->GetName() == TEXT("Body"))
+			{
+				BodyMesh = Component;
+				break;
+			}
+		}
+
+		if (BodyMesh)
+		{
+			BodyMesh->PlayAnimation(IdleBodyAnimation, /*bLooping=*/ true);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("%s: BodyActor %s has no component named \"Body\""),
+				*GetClass()->GetName(), *BodyActor->GetName());
+		}
+	}
 }
 
 void ARhubarbFaceActorBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
