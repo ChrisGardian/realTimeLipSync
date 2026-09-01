@@ -30,6 +30,8 @@ Saved/
 .DS_Store
 
 *.md
+!LAMP-SETUP-README.md
+!UNREAL-CLIENT-README.md
 
 # Wrapper scripts (chemins absolus propres à cette machine)
 Scripts/
