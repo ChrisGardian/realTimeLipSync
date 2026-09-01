@@ -19,16 +19,16 @@
 
 ADemoScenarioActor::ADemoScenarioActor()
 {
-	// Même valeur que sur ADynamicSpeechTestActor : calibrée pour le même pipeline TTS -> Rhubarb
-	// -> LiveLink, donc la même latence LiveLink/AnimBP en aval s'applique ici.
+	// Same value as ADynamicSpeechTestActor: calibrated for the same TTS to Rhubarb to LiveLink
+	// pipeline, so the same downstream LiveLink/AnimBP latency applies here.
 	LipSyncDelaySeconds = 0.3f;
 }
 
 void ADemoScenarioActor::PlayIntro()
 {
-	// Même pattern qu'ARhubarbMetaHumanActor::BeginPlay (Phase 1) : SoundToPlay est un asset importé
-	// une fois pour toutes, donc son chemin disque d'origine (nécessaire pour Rhubarb) se retrouve
-	// via ses métadonnées d'import plutôt que de refaire un appel réseau à chaque fois.
+	// Same pattern as ARhubarbMetaHumanActor::BeginPlay (Phase 1): SoundToPlay is an asset imported
+	// once and for all, so its original disk path (needed by Rhubarb) is resolved from its import
+	// metadata instead of repeating a network call every time.
 	if (!SoundToPlay)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("DemoScenarioActor: SoundToPlay is not set"));
@@ -45,14 +45,14 @@ void ADemoScenarioActor::PlayIntro()
 
 	if (AudioFilePath.IsEmpty())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("DemoScenarioActor: could not resolve source file path for %s (editor-only data, see TODO.md)"), *SoundToPlay->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("DemoScenarioActor: could not resolve source file path for %s (editor-only data)"), *SoundToPlay->GetName());
 		return;
 	}
 
-	// Fichier local : Rhubarb peut tourner en bloquant directement sur le game thread, pas besoin
-	// de l'AsyncTask utilisé par ProcessIncomingAudioChunk pour les réponses réseau.
+	// Local file: Rhubarb can run blocking directly on the game thread, no need for the AsyncTask
+	// that ProcessIncomingAudioChunk uses for network responses.
 	URhubarbLipSyncRunner* Runner = NewObject<URhubarbLipSyncRunner>(this);
-	if (!Runner->RunOnAudioFile(AudioFilePath, MouthCues))
+	if (!Runner->RunOnAudioFile(AudioFilePath, RhubarbExecutablePath, MouthCues))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("DemoScenarioActor: RunOnAudioFile failed for %s"), *AudioFilePath);
 		return;
@@ -188,7 +188,7 @@ void ADemoScenarioActor::SendSignedAskRequest(const FString& Question, const FSt
 			return;
 		}
 
-		// Réponse attendue : {"answer": "..."} (voir /api/v1/ai/ask côté PHP, index.php).
+		// Expected response: {"answer": "..."} (see /api/v1/ai/ask on the PHP side, index.php).
 		FString Answer;
 		TSharedPtr<FJsonObject> JsonObject;
 		const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response->GetContentAsString());

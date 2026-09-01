@@ -11,7 +11,7 @@
 
 ADynamicSpeechTestActor::ADynamicSpeechTestActor()
 {
-	LipSyncDelaySeconds = 0.3f;
+	LipSyncDelaySeconds = 0.2f;
 }
 
 void ADynamicSpeechTestActor::SimulateIncomingChunk()

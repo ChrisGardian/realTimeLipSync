@@ -8,38 +8,37 @@
 
 class USoundWave;
 
-// Actor de test Phase 1 pour MetaHuman : joue un audio pré-enregistré et pousse les visèmes
-// Rhubarb comme curves ARKit via un ILiveLinkSource custom (voir ARhubarbFaceActorBase pour la
-// partie commune avec ADynamicSpeechTestActor). Le MetaHuman doit avoir "Use ARKit Face" = true
-// et "ARKit Face Subject" = LiveLinkSubjectName (variables exposées sur son Blueprint, ex. BP_Ada)
-// pour écouter ce flux.
+// Phase 1 MetaHuman test actor: plays a pre-recorded audio and pushes Rhubarb visemes as ARKit
+// curves through a custom ILiveLinkSource (see ARhubarbFaceActorBase for the part shared with
+// ADynamicSpeechTestActor). The MetaHuman must have "Use ARKit Face" = true and "ARKit Face
+// Subject" = LiveLinkSubjectName (exposed on its Blueprint, e.g. BP_Ada) to listen to this stream.
 UCLASS()
 class REALTIMELIPSYNC_API ARhubarbMetaHumanActor : public ARhubarbFaceActorBase
 {
 	GENERATED_BODY()
 
 public:
-	// Le son à jouer. Son chemin disque d'origine (nécessaire pour Rhubarb) est retrouvé
-	// automatiquement via ses métadonnées d'import (editor-only, voir TODO.md).
+	// Sound to play. Its original disk path (needed by Rhubarb) is resolved automatically from
+	// its import metadata
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
 	USoundWave* SoundToPlay;
 
-	// Si activé, ignore complètement l'audio/Rhubarb : sert à calibrer les poids ARKit à la main
-	// pendant le Play (édition live des propriétés ci-dessous dans le Details panel).
+	// If enabled, bypasses audio/Rhubarb entirely, for hand-calibrating ARKit weights during Play
+	// (live-editing the properties below in the Details panel).
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Debug")
 	bool bDebugMode = false;
 
-	// En mode debug : true = utiliser les 8 sliders DebugWeight_* ci-dessous ; false = prévisualiser
-	// les poids actuels de la table VisemeToArKitMapping pour DebugForcedViseme.
+	// In debug mode: true uses the 8 DebugWeight_* sliders below, false previews the current
+	// weights from the VisemeToArKitMapping table for DebugForcedViseme.
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Debug", meta = (EditCondition = "bDebugMode"))
 	bool bDebugUseManualWeights = true;
 
-	// Visème (A-H, X) dont on prévisualise les poids de la table quand bDebugUseManualWeights = false.
+	// Viseme (A-H, X) whose table weights are previewed when bDebugUseManualWeights is false.
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Debug", meta = (EditCondition = "bDebugMode && !bDebugUseManualWeights"))
 	FString DebugForcedViseme = TEXT("X");
 
-	// Poids manuels (mêmes curves, même ordre que VisemeToArKitMapping::GetUsedCurveNames) utilisés
-	// quand bDebugUseManualWeights = true.
+	// Manual weights (same curves, same order as VisemeToArKitMapping::GetUsedCurveNames), used
+	// when bDebugUseManualWeights is true.
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Debug", meta = (EditCondition = "bDebugMode && bDebugUseManualWeights", ClampMin = "0", ClampMax = "1", UIMin = "0", UIMax = "1"))
 	float DebugWeight_JawOpen = 0.f;
 

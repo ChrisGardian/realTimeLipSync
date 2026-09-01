@@ -4,8 +4,9 @@
 
 #include "CoreMinimal.h"
 
-// Paramètres calibrables d'une instance de FIdleFaceAnimator, exposés en UPROPERTY sur l'actor
-// propriétaire (Details panel) et passés à Update() à chaque tick plutôt que dupliqués comme état interne.
+// Calibratable settings for an FIdleFaceAnimator instance, exposed as UPROPERTY on the owning
+// actor (Details panel) and passed to Update() on every tick rather than duplicated as internal
+// state.
 struct FIdleFaceAnimationSettings
 {
 	float MinBlinkInterval = 2.5f;
@@ -13,22 +14,22 @@ struct FIdleFaceAnimationSettings
 	float BlinkDuration = 0.2f;
 };
 
-// Regroupe les micro-mouvements "idle animation" pilotés par curves ARKit (clignement des yeux pour
-// l'instant, regard/sourcils envisagés plus tard) : timers et courbes de progression, pour éviter de
-// dupliquer cette logique entre ARhubarbMetaHumanActor et ADynamicSpeechTestActor. Le mouvement de tête
-// (rotation d'os, pas une curve ARKit) n'entre pas dans cette classe tant qu'il n'est pas implémenté.
+// Groups the ARKit curve-driven "idle animation" micro-movements (eye blink for now, gaze and
+// eyebrows planned later): timers and progress curves, to avoid duplicating this logic between
+// ARhubarbMetaHumanActor and ADynamicSpeechTestActor. Head movement (bone rotation, not an ARKit
+// curve) does not belong in this class until it is implemented.
 class FIdleFaceAnimator
 {
 public:
-	// Noms des curves ARKit poussées par cette classe, à ajouter à la fin de la liste de curves de
-	// l'actor propriétaire avant de déclarer le subject LiveLink (voir WriteCurveValues).
+	// Names of the ARKit curves pushed by this class. Append them to the end of the owning
+	// actor's curve list before declaring the LiveLink subject (see WriteCurveValues).
 	static const TArray<FName>& GetCurveNames();
 
-	// Fait avancer l'état du clignement d'un DeltaTime.
+	// Advances the blink state by DeltaTime.
 	void Update(float DeltaTime, const FIdleFaceAnimationSettings& Settings);
 
-	// Écrit les valeurs courantes dans les derniers éléments de OutFullCurveValues (même taille que
-	// GetCurveNames(), en supposant que ces curves ont été ajoutées à la fin de la liste déclarée).
+	// Writes the current values into the last elements of OutFullCurveValues (same size as
+	// GetCurveNames(), assuming these curves were appended to the end of the declared list).
 	void WriteCurveValues(TArray<float>& OutFullCurveValues) const;
 
 private:

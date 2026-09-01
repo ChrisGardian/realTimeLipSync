@@ -8,9 +8,9 @@ public class RealTimeLipSync : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		// Sous-dossiers par responsabilité (Rhubarb/, FaceDriver/, Test/) : pas de split Public/Private,
-		// donc on les déclare explicitement pour que les #include par simple nom de fichier résolvent
-		// entre dossiers (UBT n'ajoute pas les sous-dossiers du module au chemin d'include par défaut).
+		// Subfolders organized by responsibility (Rhubarb/, FaceDriver/, Test/), no Public/Private
+		// split, so declare them explicitly for bare-filename #include to resolve across folders
+		// (UBT does not add module subfolders to the include path by default).
 		PrivateIncludePaths.AddRange(new string[] {
 			ModuleDirectory + "/Rhubarb",
 			ModuleDirectory + "/FaceDriver",

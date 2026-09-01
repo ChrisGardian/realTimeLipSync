@@ -9,9 +9,7 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 
-const FString URhubarbLipSyncRunner::RhubarbExecutablePath = TEXT("C:/Tools/Rhubarb-Lip-Sync-1.14.0-Windows/rhubarb.exe");
-
-bool URhubarbLipSyncRunner::RunOnAudioFile(const FString& AudioFilePath, TArray<FRhubarbMouthCue>& OutMouthCues)
+bool URhubarbLipSyncRunner::RunOnAudioFile(const FString& AudioFilePath, const FString& RhubarbExecutablePath, TArray<FRhubarbMouthCue>& OutMouthCues)
 {
 	OutMouthCues.Reset();
 
@@ -24,7 +22,7 @@ bool URhubarbLipSyncRunner::RunOnAudioFile(const FString& AudioFilePath, TArray<
 	const FString OutputJsonPath = FPaths::ChangeExtension(AudioFilePath, TEXT("json"));
 	const FString Args = BuildCommandLineArgs(AudioFilePath, OutputJsonPath);
 
-	if (!ExecuteRhubarbProcess(Args))
+	if (!ExecuteRhubarbProcess(RhubarbExecutablePath, Args))
 	{
 		return false;
 	}
@@ -40,7 +38,7 @@ FString URhubarbLipSyncRunner::BuildCommandLineArgs(const FString& AudioFilePath
 		*AudioFilePath);
 }
 
-bool URhubarbLipSyncRunner::ExecuteRhubarbProcess(const FString& Args) const
+bool URhubarbLipSyncRunner::ExecuteRhubarbProcess(const FString& RhubarbExecutablePath, const FString& Args) const
 {
 	if (!FPaths::FileExists(RhubarbExecutablePath))
 	{

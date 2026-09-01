@@ -14,11 +14,11 @@
 
 namespace
 {
-	// --- SHA-256 minimal, autoportant (algorithme domaine public, adapté de l'implémentation de
-	// référence de Brad Conte). Nécessaire car FPlatformMisc::GetSHA256Signature n'est PAS
-	// implémenté sur Windows : la version générique (GenericPlatformMisc.cpp) fait juste
-	// "checkf(false, ...)" et aucune override Windows n'existe dans les sources du moteur (vérifié).
-	// HMAC-SHA256 est construit par-dessus, comme le hash_hmac('sha256', ...) utilisé côté PHP.
+	// Minimal, self-contained SHA-256 (public-domain algorithm, adapted from Brad Conte's
+	// reference implementation). Needed because FPlatformMisc::GetSHA256Signature is NOT
+	// implemented on Windows: the generic version (GenericPlatformMisc.cpp) just does
+	// "checkf(false, ...)" and no Windows override exists in the engine sources.
+	// HMAC-SHA256 is built on top of it, matching hash_hmac('sha256', ...) on the PHP side.
 
 	struct FSha256Context
 	{
@@ -144,7 +144,7 @@ namespace
 
 	TArray<uint8> ComputeHmacSha256(const TArray<uint8>& KeyBytesIn, const TArray<uint8>& MessageBytes)
 	{
-		constexpr int32 BlockSize = 64; // taille de bloc SHA-256
+		constexpr int32 BlockSize = 64; // SHA-256 block size
 
 		TArray<uint8> Key = KeyBytesIn;
 		if (Key.Num() > BlockSize)
@@ -260,7 +260,7 @@ void FMiddlewareAuthClient::RequestSession(const FString& BackendBaseUrl, TFunct
 FString FMiddlewareAuthClient::BuildSignedUrl(const FString& BackendBaseUrl, const FString& Path,
 	TMap<FString, FString> QueryParams, const FString& Sid, const FString& SecretHex)
 {
-	// SIGN_TTL_SEC=60 côté backend (.env) : la signature doit rester dans cette fenêtre.
+	// Backend SIGN_TTL_SEC is 60: the signature must stay within this window.
 	const int64 Exp = FDateTime::UtcNow().ToUnixTimestamp() + 60;
 	const FString Nonce = FGuid::NewGuid().ToString(EGuidFormats::Digits);
 
@@ -269,7 +269,7 @@ FString FMiddlewareAuthClient::BuildSignedUrl(const FString& BackendBaseUrl, con
 	QueryParams.Add(TEXT("nonce"), Nonce);
 	QueryParams.KeySort([](const FString& A, const FString& B) { return A < B; });
 
-	// Équivalent de canon_query() côté PHP : tri alphabétique des clés, encodage RFC3986, sig exclu.
+	// Equivalent of canon_query() on the PHP side: keys sorted alphabetically, RFC3986 encoding, sig excluded.
 	FString CanonicalQuery;
 	for (const TPair<FString, FString>& Pair : QueryParams)
 	{
@@ -280,7 +280,7 @@ FString FMiddlewareAuthClient::BuildSignedUrl(const FString& BackendBaseUrl, con
 		CanonicalQuery += FGenericPlatformHttp::UrlEncode(Pair.Key) + TEXT("=") + FGenericPlatformHttp::UrlEncode(Pair.Value);
 	}
 
-	// Équivalent de string_to_sign() côté PHP : "METHODE\nPATH\nquery_canonique".
+	// Equivalent of string_to_sign() on the PHP side: "METHOD\nPATH\ncanonical_query".
 	const FString StringToSign = FString::Printf(TEXT("GET\n%s\n%s"), *Path, *CanonicalQuery);
 
 	const FTCHARToUTF8 MessageUtf8(*StringToSign);

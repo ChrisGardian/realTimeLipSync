@@ -42,12 +42,12 @@ void ARhubarbTestActor::BeginPlay()
 
 	if (AudioFilePath.IsEmpty())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ARhubarbTestActor: could not resolve source file path for %s (editor-only data, see TODO.md)"), *SoundToPlay->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("ARhubarbTestActor: could not resolve source file path for %s (editor-only data)"), *SoundToPlay->GetName());
 		return;
 	}
 
 	URhubarbLipSyncRunner* Runner = NewObject<URhubarbLipSyncRunner>(this);
-	if (!Runner->RunOnAudioFile(AudioFilePath, MouthCues))
+	if (!Runner->RunOnAudioFile(AudioFilePath, RhubarbExecutablePath, MouthCues))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ARhubarbTestActor: RunOnAudioFile failed for %s"), *AudioFilePath);
 		return;
@@ -102,9 +102,9 @@ void ARhubarbTestActor::Tick(float DeltaTime)
 		? FMath::Clamp((ElapsedPlaybackTime - CurrentCue.Start) / Duration, 0.f, 1.f)
 		: 1.f;
 
-	// Rhubarb enchaîne les cues bout à bout : la cue précédente est donc simplement
-	// celle d'avant dans le tableau. Son poids est le complément de Alpha, ce qui
-	// crossfade current/previous sur la durée propre de la cue courante.
+	// Rhubarb chains cues back to back, so the previous cue is simply the prior array entry.
+	// Its weight is the complement of Alpha, which crossfades current/previous over the current
+	// cue's duration.
 	const bool bSameAsPrevious = CueIndex > 0 && MouthCues[CueIndex - 1].Value == CurrentCue.Value;
 
 	if (const FName* CurrentMorph = VisemeToMorphTarget.Find(CurrentCue.Value))

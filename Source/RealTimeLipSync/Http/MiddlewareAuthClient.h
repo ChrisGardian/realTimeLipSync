@@ -4,22 +4,21 @@
 
 #include "CoreMinimal.h"
 
-// Implémente le flow HMAC-Guard attendu par le middleware PHP (voir hmac_guard() dans
-// backend/public/index.php) : récupération d'un sid + session_secret, puis signature des
-// requêtes GET vers les endpoints /api/v1/* qui l'exigent (dont /api/v1/ai/tts).
-// Pas un UObject : pas besoin d'exposition Blueprint, juste des fonctions statiques appelées
-// depuis du C++ de test/gameplay.
+// Implements the HMAC-guard flow expected by the PHP middleware (see hmac_guard() on the backend
+// side): fetches a sid plus session_secret, then signs GET requests to the /api/v1/* endpoints
+// that require it (including /api/v1/ai/tts). Not a UObject: no need for Blueprint exposure, just
+// static functions called from test/gameplay C++.
 class FMiddlewareAuthClient
 {
 public:
-	// Enchaîne GET /api/v1/session/id puis GET /api/v1/session/secret?sid=...
-	// OnComplete(bSuccess, Sid, SecretHex) est appelé sur le game thread, que les requêtes
-	// aient réussi ou non (bSuccess=false si l'une des deux échoue ou renvoie un JSON inattendu).
+	// Chains GET /api/v1/session/id then GET /api/v1/session/secret?sid=...
+	// OnComplete(bSuccess, Sid, SecretHex) is called on the game thread whether the requests
+	// succeeded or not (bSuccess=false if either fails or returns unexpected JSON).
 	static void RequestSession(const FString& BackendBaseUrl, TFunction<void(bool bSuccess, FString Sid, FString SecretHex)> OnComplete);
 
-	// Construit l'URL GET signée pour Path (ex: "/api/v1/ai/tts") : ajoute sid/exp/nonce aux
-	// QueryParams fournis, calcule sig = HMAC-SHA256(SecretHex, "GET\n{Path}\n{query_canonique}")
-	// exactement comme string_to_sign()/hmac_guard() côté PHP (query triée par clé, RFC3986, sig exclu).
+	// Builds the signed GET URL for Path (e.g. "/api/v1/ai/tts"): adds sid/exp/nonce to the given
+	// QueryParams, computes sig = HMAC-SHA256(SecretHex, "GET\n{Path}\n{canonical_query}") exactly
+	// like string_to_sign()/hmac_guard() on the backend (query sorted by key, RFC3986, sig excluded).
 	static FString BuildSignedUrl(const FString& BackendBaseUrl, const FString& Path,
 		TMap<FString, FString> QueryParams, const FString& Sid, const FString& SecretHex);
 };

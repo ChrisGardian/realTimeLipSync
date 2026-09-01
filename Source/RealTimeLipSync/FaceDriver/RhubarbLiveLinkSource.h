@@ -5,11 +5,10 @@
 #include "CoreMinimal.h"
 #include "ILiveLinkSource.h"
 
-// Source LiveLink "virtuelle" : ne lit aucun matériel, pousse elle-même des frames de curves
-// ARKit calculées à partir des visèmes Rhubarb (voir VisemeToArKitMapping). Permet de piloter
-// le visage MetaHuman par le même chemin que la capture faciale iPhone (Face_AnimBP + RigLogic
-// via mh_arkit_mapping_pose), sans passer par SetMorphTarget qui serait écrasé à chaque tick
-// par le Post Process AnimBP (voir mémoire projet / CLAUDE.md pour le détail de cette décision).
+// "Virtual" LiveLink source: reads no hardware, instead pushes ARKit curve frames computed from
+// Rhubarb visemes (see VisemeToArKitMapping). Lets the MetaHuman face be driven through the same
+// path as iPhone facial capture (Face_AnimBP plus RigLogic via mh_arkit_mapping_pose), instead of
+// SetMorphTarget, which would be overwritten every tick by the Post Process AnimBP.
 class FRhubarbLiveLinkSource : public ILiveLinkSource, public TSharedFromThis<FRhubarbLiveLinkSource>
 {
 public:
@@ -24,12 +23,11 @@ public:
 	virtual FText GetSourceStatus() const override;
 	//~ End ILiveLinkSource interface
 
-	// Déclare le subject avec la liste de curves qui seront poussées. À appeler une fois,
-	// après que la source a été ajoutée au client (Client->AddSource) et avant PushCurveFrame.
+	// Declares the subject with the list of curves that will be pushed. Call once, after the
+	// source has been added to the client (Client->AddSource) and before PushCurveFrame.
 	void DeclareSubject(const TArray<FName>& CurveNames);
 
-	// Pousse une frame de valeurs de curves : même ordre et même taille que CurveNames
-	// passé à DeclareSubject.
+	// Pushes a frame of curve values: same order and size as CurveNames passed to DeclareSubject.
 	void PushCurveFrame(const TArray<float>& CurveValues);
 
 private:

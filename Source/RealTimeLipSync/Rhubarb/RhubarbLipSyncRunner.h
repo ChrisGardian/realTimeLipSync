@@ -6,8 +6,8 @@
 #include "UObject/NoExportTypes.h"
 #include "RhubarbLipSyncRunner.generated.h"
 
-// Une "mouth cue" : une forme de bouche (A-X) active entre Start et End (secondes),
-// telle que sortie par Rhubarb Lip Sync dans le tableau JSON "mouthCues".
+// A "mouth cue": a mouth shape (A-X) active between Start and End (seconds), as output by
+// Rhubarb Lip Sync in the "mouthCues" JSON array.
 USTRUCT(BlueprintType)
 struct FRhubarbMouthCue
 {
@@ -23,33 +23,31 @@ struct FRhubarbMouthCue
 	FString Value;
 };
 
-// Lance l'exécutable Rhubarb Lip Sync sur un fichier audio et parse la timeline
-// de visèmes (mouth cues) produite en JSON. Bloquant : à appeler hors du game thread
-// si l'audio est long, sinon acceptable pour les tests en Phase 1.
+// Runs the Rhubarb Lip Sync executable on an audio file and parses the JSON viseme (mouth cue)
+// timeline it produces. Blocking: call off the game thread for long audio, otherwise fine for
+// Phase 1 tests.
 UCLASS(BlueprintType)
 class REALTIMELIPSYNC_API URhubarbLipSyncRunner : public UObject
 {
 	GENERATED_BODY()
 
 public:
-	// Chemin absolu vers rhubarb.exe. Configuré ici pour le poste de dev ;
-	// à externaliser (config projet) si le pipeline doit tourner ailleurs.
-	static const FString RhubarbExecutablePath;
-
-	// Lance Rhubarb sur AudioFilePath, attend la fin du process, parse le JSON produit.
-	// Le JSON est écrit à côté du fichier audio (même dossier, même nom de base, extension .json)
-	// et est réécrit à chaque appel.
+	// Runs Rhubarb on AudioFilePath, waits for the process to finish, parses the resulting JSON.
+	// RhubarbExecutablePath is the absolute path to rhubarb.exe, provided by the caller (see the
+	// RhubarbExecutablePath UPROPERTY on the actors that use this runner). The JSON is written
+	// next to the audio file (same folder, same base name, .json extension) and overwritten on
+	// every call.
 	UFUNCTION(BlueprintCallable, Category = "RhubarbLipSync")
-	bool RunOnAudioFile(const FString& AudioFilePath, TArray<FRhubarbMouthCue>& OutMouthCues);
+	bool RunOnAudioFile(const FString& AudioFilePath, const FString& RhubarbExecutablePath, TArray<FRhubarbMouthCue>& OutMouthCues);
 
 private:
-	// Construit la ligne d'arguments passée à rhubarb.exe.
+	// Builds the argument line passed to rhubarb.exe.
 	FString BuildCommandLineArgs(const FString& AudioFilePath, const FString& OutputJsonPath) const;
 
-	// Lance le process et bloque jusqu'à sa fin. Retourne false si le process n'a pas pu être créé
-	// ou si son code de sortie indique une erreur.
-	bool ExecuteRhubarbProcess(const FString& Args) const;
+	// Runs the process and blocks until it finishes. Returns false if the process could not be
+	// created or its exit code indicates an error.
+	bool ExecuteRhubarbProcess(const FString& RhubarbExecutablePath, const FString& Args) const;
 
-	// Charge et parse le fichier JSON produit par Rhubarb en tableau de mouth cues.
+	// Loads and parses the JSON file produced by Rhubarb into an array of mouth cues.
 	bool ParseMouthCuesFromJson(const FString& JsonFilePath, TArray<FRhubarbMouthCue>& OutMouthCues) const;
 };

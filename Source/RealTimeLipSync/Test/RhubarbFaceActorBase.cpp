@@ -40,16 +40,16 @@ void ARhubarbFaceActorBase::BeginPlay()
 	LiveLinkSource = MakeShared<FRhubarbLiveLinkSource>(LiveLinkSubjectName);
 	Client.AddSource(LiveLinkSource);
 
-	// Curves de bouche (VisemeToArKitMapping) + curves d'idle animation (FIdleFaceAnimator) déclarées
-	// ensemble, dans cet ordre : un seul subject LiveLink pour tout le visage.
+	// Mouth curves (VisemeToArKitMapping) and idle animation curves (FIdleFaceAnimator) declared
+	// together, in this order: a single LiveLink subject for the whole face.
 	TArray<FName> AllCurveNames = VisemeToArKitMapping::GetUsedCurveNames();
 	AllCurveNames.Append(FIdleFaceAnimator::GetCurveNames());
 	LiveLinkSource->DeclareSubject(AllCurveNames);
 	CurrentCurveValues.Init(0.f, AllCurveNames.Num());
 
-	// Idle body animation : démarre dès BeginPlay, comme le blink, pour que le NPC ne reste pas figé
-	// avant le premier son. BodyActor a deux USkeletalMeshComponent (Face + Body) -- on filtre par nom
-	// pour ne pas jouer l'anim sur le mauvais component.
+	// Idle body animation: starts at BeginPlay, same as the blink, so the NPC is not frozen before
+	// the first sound. BodyActor has two USkeletalMeshComponent (Face and Body); filter by name so
+	// the animation does not play on the wrong component.
 	if (BodyActor && IdleBodyAnimation)
 	{
 		TArray<USkeletalMeshComponent*> SkeletalMeshComponents;
@@ -100,15 +100,15 @@ void ARhubarbFaceActorBase::Tick(float DeltaTime)
 		return;
 	}
 
-	// Échantillonnage des visèmes : seulement une fois qu'un audio a été traité (MouthCues rempli).
-	// Avant ça, les curves de bouche restent à leur valeur initiale (0, bouche neutre) — mais l'idle
-	// animation plus bas continue de tourner dès BeginPlay, pas seulement pendant la lecture d'un son.
+	// Viseme sampling only runs once audio has been processed (MouthCues filled); until then the
+	// mouth curves stay at their initial value, but the idle animation below keeps running from
+	// BeginPlay regardless of whether a sound is playing.
 	if (MouthCues.Num() > 0)
 	{
 		ElapsedPlaybackTime += DeltaTime;
 
-		// Temps utilisé pour chercher le cue, décalé par rapport au temps de lecture audio réel
-		// (voir LipSyncDelaySeconds). Avant l'instant 0 ou après la dernière cue -> "X" (idle/neutre).
+		// Offset from the real audio playback time (see LipSyncDelaySeconds). Falls back to "X"
+		// (neutral) before time 0 or after the last cue.
 		const float VisemeSampleTime = ElapsedPlaybackTime - LipSyncDelaySeconds;
 
 		FString CurrentViseme = TEXT("X");
@@ -135,9 +135,8 @@ void ARhubarbFaceActorBase::Tick(float DeltaTime)
 		}
 	}
 
-	// Idle animation : tourne dès que le subject LiveLink existe, indépendamment de MouthCues, pour
-	// que le NPC ne reste pas figé avant le premier son (voir TODO.md). Écrit directement les derniers
-	// éléments de CurrentCurveValues (voir FIdleFaceAnimator::WriteCurveValues).
+	// Runs as soon as the LiveLink subject exists, independently of MouthCues, so the NPC is not
+	// frozen before the first sound
 	FIdleFaceAnimationSettings IdleSettings;
 	IdleSettings.MinBlinkInterval = MinBlinkInterval;
 	IdleSettings.MaxBlinkInterval = MaxBlinkInterval;
@@ -152,7 +151,7 @@ void ARhubarbFaceActorBase::ProcessIncomingAudioChunk(const TArray<uint8>& WavBy
 {
 	Trace.ChunkReceived = FPlatformTime::Seconds();
 
-	// --- Audio : parser l'entête WAV et construire un clip jouable sans passer par un asset importé.
+	// Parse the WAV header and build a playable clip without going through an imported asset.
 	FWaveModInfo WaveInfo;
 	FString WaveParseError;
 	if (!WaveInfo.ReadWaveInfo(WavBytes.GetData(), WavBytes.Num(), &WaveParseError))
@@ -168,9 +167,9 @@ void ARhubarbFaceActorBase::ProcessIncomingAudioChunk(const TArray<uint8>& WavBy
 	}
 	Trace.WavParsed = FPlatformTime::Seconds();
 
-	// Construit le clip mais ne le joue pas tout de suite : Rhubarb (ci-dessous) tourne en async et
-	// met un temps variable à finir, donc démarrer Play() ici désynchroniserait audio et visèmes.
-	// Les deux ne démarrent qu'ensemble, une fois les mouth cues prêtes (voir callback plus bas).
+	// Built but not played yet: Rhubarb below runs async and takes a variable time to finish, so
+	// starting Play() here would desync audio and visemes. Both start together once the mouth
+	// cues are ready (see callback below).
 	TStrongObjectPtr<USoundWaveProcedural> SoundWave(NewObject<USoundWaveProcedural>());
 	SoundWave->SetSampleRate(*WaveInfo.pSamplesPerSec);
 	SoundWave->NumChannels = *WaveInfo.pChannels;
@@ -180,7 +179,6 @@ void ARhubarbFaceActorBase::ProcessIncomingAudioChunk(const TArray<uint8>& WavBy
 	UE_LOG(LogTemp, Log, TEXT("%s: clip ready (%d Hz, %d ch, %.2fs), waiting for Rhubarb before playback"),
 		*GetClass()->GetName(), *WaveInfo.pSamplesPerSec, *WaveInfo.pChannels, SoundWave->Duration);
 
-	// --- Visèmes : écrire en fichier temporaire et lancer Rhubarb hors game thread (brique validée).
 	const FString TempDir = FPaths::ProjectSavedDir() / TEXT("DynamicSpeech");
 	IFileManager::Get().MakeDirectory(*TempDir, /*Tree*/ true);
 
@@ -193,24 +191,23 @@ void ARhubarbFaceActorBase::ProcessIncomingAudioChunk(const TArray<uint8>& WavBy
 	}
 	Trace.TempFileWritten = FPlatformTime::Seconds();
 
-	// NewObject doit rester sur le game thread ; Rhubarb (process externe bloquant) est ensuite
-	// lancé hors game thread pour ne pas geler l'éditeur pendant l'analyse.
+	// NewObject must stay on the game thread; Rhubarb itself (a blocking external process) then
+	// runs off the game thread so the editor does not freeze during analysis.
 	TStrongObjectPtr<URhubarbLipSyncRunner> Runner(NewObject<URhubarbLipSyncRunner>());
 	TWeakObjectPtr<ARhubarbFaceActorBase> WeakThis(this);
 	const bool bKeepFiles = bKeepTempAudio;
+	const FString ExecutablePath = RhubarbExecutablePath;
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [Runner, TempWavPath, WeakThis, SoundWave, Trace, Source, bKeepFiles]() mutable
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [Runner, TempWavPath, WeakThis, SoundWave, Trace, Source, bKeepFiles, ExecutablePath]() mutable
 	{
 		Trace.BackgroundTaskStarted = FPlatformTime::Seconds();
 
 		TArray<FRhubarbMouthCue> ResultMouthCues;
-		const bool bSuccess = Runner->RunOnAudioFile(TempWavPath, ResultMouthCues);
+		const bool bSuccess = Runner->RunOnAudioFile(TempWavPath, ExecutablePath, ResultMouthCues);
 		Trace.RhubarbFinished = FPlatformTime::Seconds();
 
-		// Le WAV temporaire et son JSON (mouth cues déjà parsées ci-dessus) ne servent plus une fois
-		// Rhubarb terminé, succès ou non : on les efface pour ne pas accumuler indéfiniment dans Saved/,
-		// sauf si bKeepTempAudio est coché (réutilisation via TestWavPath + SimulateIncomingChunk, pour
-		// éviter de refaire un appel ElevenLabs à chaque test/vidéo).
+		// Delete the temp WAV and JSON unless bKeepTempAudio is set (reuse via TestWavPath and
+		// SimulateIncomingChunk, to avoid a fresh ElevenLabs call for every test/video).
 		if (!bKeepFiles)
 		{
 			IFileManager::Get().Delete(*TempWavPath);
@@ -224,7 +221,7 @@ void ARhubarbFaceActorBase::ProcessIncomingAudioChunk(const TArray<uint8>& WavBy
 			ARhubarbFaceActorBase* Actor = WeakThis.Get();
 			if (!Actor)
 			{
-				// L'acteur (ou le PIE) a été détruit pendant que Rhubarb tournait : rien à faire.
+				// Actor (or PIE session) was destroyed while Rhubarb was running.
 				return;
 			}
 
@@ -240,8 +237,6 @@ void ARhubarbFaceActorBase::ProcessIncomingAudioChunk(const TArray<uint8>& WavBy
 				UE_LOG(LogTemp, Log, TEXT("  [%.2f - %.2f] %s"), Cue.Start, Cue.End, *Cue.Value);
 			}
 
-			// Visèmes et audio démarrent ensemble, ici seulement : c'est ce qui garantit la synchro
-			// (voir le commentaire plus haut sur pourquoi Play() n'est pas appelé plus tôt).
 			Actor->MouthCues = ResultMouthCues;
 			Actor->ElapsedPlaybackTime = 0.f;
 			Actor->AudioPlayback->SetSound(SoundWave.Get());
@@ -265,9 +260,8 @@ void ARhubarbFaceActorBase::AppendLatencySample(const FLatencyTrace& Trace, cons
 		FFileHelper::SaveStringToFile(Header, *CsvPath);
 	}
 
-	// Trace.RequestSent/ResponseReceived restent à 0 quand l'appelant n'a pas fait de requête réseau
-	// (ex: SimulateIncomingChunk) : colonne laissée vide plutôt qu'à 0 pour ne pas la confondre avec
-	// une vraie mesure nulle.
+	// Left empty rather than 0 when the caller made no network request (e.g. SimulateIncomingChunk),
+	// so it is not confused with an actual zero measurement.
 	const FString NetworkMs = (Trace.RequestSent > 0.0 && Trace.ResponseReceived > 0.0)
 		? FString::Printf(TEXT("%.2f"), (Trace.ResponseReceived - Trace.RequestSent) * 1000.0)
 		: FString();

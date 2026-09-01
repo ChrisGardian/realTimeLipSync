@@ -11,8 +11,8 @@ class USkeletalMeshComponent;
 class UAudioComponent;
 class USoundWave;
 
-// Actor de test Phase 1 : joue un audio pré-enregistré et anime les Morph Targets
-// du visage de test en suivant les mouth cues produites par Rhubarb Lip Sync.
+// Phase 1 test actor: plays a pre-recorded audio and animates the test face's Morph Targets
+// following the mouth cues produced by Rhubarb Lip Sync.
 UCLASS()
 class REALTIMELIPSYNC_API ARhubarbTestActor : public AActor
 {
@@ -21,22 +21,26 @@ class REALTIMELIPSYNC_API ARhubarbTestActor : public AActor
 public:
 	ARhubarbTestActor();
 
-	// Le visage de test, portant les Morph Targets Viseme_A à Viseme_X.
+	// Test face, carrying the Viseme_A to Viseme_X Morph Targets.
 	UPROPERTY(VisibleAnywhere, Category = "RhubarbLipSync")
 	USkeletalMeshComponent* FaceMesh;
 
-	// Lit le son en même temps que l'animation faciale.
+	// Plays the sound alongside the facial animation.
 	UPROPERTY(VisibleAnywhere, Category = "RhubarbLipSync")
 	UAudioComponent* AudioPlayback;
 
-	// Le son à jouer. Son chemin disque d'origine (nécessaire pour Rhubarb) est retrouvé
-	// automatiquement via ses métadonnées d'import (editor-only, voir TODO.md).
+	// Sound to play. Its original disk path (needed by Rhubarb) is resolved automatically from
+	// its import metadata (editor-only).
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
 	USoundWave* SoundToPlay;
 
-	// Mapping valeur Rhubarb ("A".."X") -> nom du Morph Target sur FaceMesh.
+	// Maps a Rhubarb value ("A" to "X") to the Morph Target name on FaceMesh.
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
 	TMap<FString, FName> VisemeToMorphTarget;
+
+	// Absolute path to rhubarb.exe on this machine.
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
+	FString RhubarbExecutablePath = TEXT("C:/Tools/Rhubarb-Lip-Sync-1.14.0-Windows/rhubarb.exe");
 
 protected:
 	virtual void BeginPlay() override;

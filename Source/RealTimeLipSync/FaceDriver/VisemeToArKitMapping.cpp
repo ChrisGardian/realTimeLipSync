@@ -4,7 +4,7 @@
 
 namespace
 {
-	// Indices dans UsedCurveNames (même ordre) : évite de rechercher par nom à chaque frame.
+	// Indices into UsedCurveNames (same order), avoiding a name lookup every frame.
 	enum ECurveIndex : int32
 	{
 		JawOpen,
@@ -53,8 +53,8 @@ void VisemeToArKitMapping::GetWeightsForViseme(const FString& Viseme, TArray<flo
 {
 	OutWeights.Init(0.f, ECurveIndex::Count);
 
-	// Basé sur les 9 formes de bouche Rhubarb (Preston Blair) : A=bilabiale fermée, B=neutre parlant,
-	// C=ouverte moyenne, D=grande ouverture, E=ouverte arrondie, F=pucker, G=dents/lèvre (F/V), H=L (langue).
+	// Based on the 9 Rhubarb (Preston Blair) mouth shapes: A=closed bilabial, B=neutral speaking,
+	// C=medium open, D=wide open, E=rounded open, F=pucker, G=teeth/lip (F/V), H=L (tongue).
 	if (Viseme == TEXT("A"))
 	{
 		OutWeights[MouthClose] = 1.0f;

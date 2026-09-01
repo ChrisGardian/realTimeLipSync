@@ -17,7 +17,7 @@ void ARhubarbMetaHumanActor::BeginPlay()
 
 	if (bDebugMode)
 	{
-		// Pas d'audio ni de Rhubarb en mode debug : Tick() pousse directement les poids de calibrage.
+		// No audio or Rhubarb in debug mode; Tick() pushes the calibration weights directly.
 		return;
 	}
 
@@ -37,12 +37,12 @@ void ARhubarbMetaHumanActor::BeginPlay()
 
 	if (AudioFilePath.IsEmpty())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ARhubarbMetaHumanActor: could not resolve source file path for %s (editor-only data, see TODO.md)"), *SoundToPlay->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("ARhubarbMetaHumanActor: could not resolve source file path for %s (editor-only data)"), *SoundToPlay->GetName());
 		return;
 	}
 
 	URhubarbLipSyncRunner* Runner = NewObject<URhubarbLipSyncRunner>(this);
-	if (!Runner->RunOnAudioFile(AudioFilePath, MouthCues))
+	if (!Runner->RunOnAudioFile(AudioFilePath, RhubarbExecutablePath, MouthCues))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ARhubarbMetaHumanActor: RunOnAudioFile failed for %s"), *AudioFilePath);
 		return;
@@ -58,8 +58,8 @@ void ARhubarbMetaHumanActor::Tick(float DeltaTime)
 {
 	if (bDebugMode)
 	{
-		// Tourne indépendamment de la logique commune (pas de lissage, pas de blink, pas de MouthCues) :
-		// on saute ARhubarbFaceActorBase::Tick, mais AActor::Tick doit quand même s'exécuter.
+		// Skips ARhubarbFaceActorBase::Tick (no smoothing, no blink, no MouthCues), but AActor::Tick
+		// must still run.
 		AActor::Tick(DeltaTime);
 
 		if (!LiveLinkSource.IsValid())
@@ -93,7 +93,7 @@ void ARhubarbMetaHumanActor::Tick(float DeltaTime)
 			VisemeToArKitMapping::GetWeightsForViseme(DebugForcedViseme, DebugCurveValues);
 		}
 
-		// Pas de blink en mode debug : l'outil de calibrage doit rester figé sur les sliders manuels.
+		// No blink in debug mode: the calibration tool must stay locked to the manual sliders.
 		for (int32 Index = 0; Index < FIdleFaceAnimator::GetCurveNames().Num(); ++Index)
 		{
 			DebugCurveValues.Add(0.f);
@@ -106,7 +106,7 @@ void ARhubarbMetaHumanActor::Tick(float DeltaTime)
 				: FString::Printf(TEXT("Debug: forced viseme %s"), *DebugForcedViseme));
 		}
 
-		// Pas d'interpolation ici : on veut voir l'effet exact des sliders, sans lissage.
+		// No interpolation here: the exact effect of the sliders should be visible, unsmoothed.
 		LiveLinkSource->PushCurveFrame(DebugCurveValues);
 		return;
 	}

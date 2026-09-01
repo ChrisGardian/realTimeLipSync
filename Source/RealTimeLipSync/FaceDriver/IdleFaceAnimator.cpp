@@ -42,7 +42,7 @@ void FIdleFaceAnimator::Update(float DeltaTime, const FIdleFaceAnimationSettings
 		}
 	}
 
-	// Triangle linéaire 0->1->0 sur la durée du clignement.
+	// Linear triangle from 0 to 1 to 0 over the blink duration.
 	CurrentBlinkWeight = (bIsBlinking && Settings.BlinkDuration > 0.f)
 		? 1.f - FMath::Abs(1.f - 2.f * (BlinkElapsedTime / Settings.BlinkDuration))
 		: 0.f;
@@ -56,7 +56,7 @@ void FIdleFaceAnimator::WriteCurveValues(TArray<float>& OutFullCurveValues) cons
 		return;
 	}
 
-	// EyeBlinkLeft, EyeBlinkRight : même poids pour les deux yeux pour l'instant.
+	// EyeBlinkLeft, EyeBlinkRight: same weight for both eyes for now.
 	OutFullCurveValues[Offset] = CurrentBlinkWeight;
 	OutFullCurveValues[Offset + 1] = CurrentBlinkWeight;
 }
