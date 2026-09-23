@@ -38,9 +38,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
 	TMap<FString, FName> VisemeToMorphTarget;
 
-	// Absolute path to rhubarb.exe on this machine.
+	// Path to rhubarb.exe, absolute or relative to the project dir. Defaults to the copy bundled
+	// in ThirdParty/Rhubarb (also staged into packaged builds, see RealTimeLipSync.Build.cs).
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
-	FString RhubarbExecutablePath = TEXT("C:/Tools/Rhubarb-Lip-Sync-1.14.0-Windows/rhubarb.exe");
+	FString RhubarbExecutablePath = TEXT("ThirdParty/Rhubarb/rhubarb.exe");
 
 protected:
 	virtual void BeginPlay() override;

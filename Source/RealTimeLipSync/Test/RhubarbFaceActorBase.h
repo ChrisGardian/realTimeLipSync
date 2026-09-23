@@ -87,9 +87,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
 	bool bKeepTempAudio = false;
 
-	// Absolute path to rhubarb.exe on this machine.
+	// Path to rhubarb.exe, absolute or relative to the project dir. Defaults to the copy bundled
+	// in ThirdParty/Rhubarb (also staged into packaged builds, see RealTimeLipSync.Build.cs).
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync")
-	FString RhubarbExecutablePath = TEXT("C:/Tools/Rhubarb-Lip-Sync-1.14.0-Windows/rhubarb.exe");
+	FString RhubarbExecutablePath = TEXT("ThirdParty/Rhubarb/rhubarb.exe");
 
 	// MetaHuman actor placed in the level (BP_Ada/BP_Taro) whose body should be animated. This
 	// C++ actor does not contain the mesh itself; it only pushes LiveLink curves to the MetaHuman,

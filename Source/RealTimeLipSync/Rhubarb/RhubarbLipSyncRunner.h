@@ -33,8 +33,9 @@ class REALTIMELIPSYNC_API URhubarbLipSyncRunner : public UObject
 
 public:
 	// Runs Rhubarb on AudioFilePath, waits for the process to finish, parses the resulting JSON.
-	// RhubarbExecutablePath is the absolute path to rhubarb.exe, provided by the caller (see the
-	// RhubarbExecutablePath UPROPERTY on the actors that use this runner). The JSON is written
+	// RhubarbExecutablePath is the path to rhubarb.exe, provided by the caller (see the
+	// RhubarbExecutablePath UPROPERTY on the actors that use this runner), either absolute or
+	// relative to the project dir (default: the copy bundled in ThirdParty/Rhubarb). The JSON is written
 	// next to the audio file (same folder, same base name, .json extension) and overwritten on
 	// every call.
 	UFUNCTION(BlueprintCallable, Category = "RhubarbLipSync")

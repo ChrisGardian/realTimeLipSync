@@ -40,15 +40,21 @@ FString URhubarbLipSyncRunner::BuildCommandLineArgs(const FString& AudioFilePath
 
 bool URhubarbLipSyncRunner::ExecuteRhubarbProcess(const FString& RhubarbExecutablePath, const FString& Args) const
 {
-	if (!FPaths::FileExists(RhubarbExecutablePath))
+	// Relative paths (the default, pointing at the copy bundled in ThirdParty/Rhubarb) resolve
+	// against the project dir, which is also where RuntimeDependencies stages it in a packaged build.
+	const FString ResolvedPath = FPaths::IsRelative(RhubarbExecutablePath)
+		? FPaths::ConvertRelativePathToFull(FPaths::ProjectDir(), RhubarbExecutablePath)
+		: RhubarbExecutablePath;
+
+	if (!FPaths::FileExists(ResolvedPath))
 	{
-		UE_LOG(LogTemp, Error, TEXT("RhubarbLipSyncRunner: rhubarb.exe not found at %s"), *RhubarbExecutablePath);
+		UE_LOG(LogTemp, Error, TEXT("RhubarbLipSyncRunner: rhubarb.exe not found at %s"), *ResolvedPath);
 		return false;
 	}
 
 	uint32 ProcessId = 0;
 	FProcHandle ProcHandle = FPlatformProcess::CreateProc(
-		*RhubarbExecutablePath,
+		*ResolvedPath,
 		*Args,
 		/*bLaunchDetached*/ false,
 		/*bLaunchHidden*/ true,

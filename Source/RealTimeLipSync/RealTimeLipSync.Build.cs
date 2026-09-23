@@ -23,6 +23,11 @@ public class RealTimeLipSync : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "Json", "JsonUtilities", "LiveLinkInterface", "HTTP" });
 
+		// Rhubarb is launched as an external process, so it must exist as loose files next to the
+		// packaged game: rhubarb.exe, its res/ folder (Sphinx models, loaded at startup) and its
+		// LICENSE.md (MIT + BSD dependencies, must ship with the binary). "..." = recursive.
+		RuntimeDependencies.Add("$(ProjectDir)/ThirdParty/Rhubarb/...");
+
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 		

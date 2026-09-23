@@ -32,6 +32,8 @@ Saved/
 *.md
 !LAMP-SETUP-README.md
 !README.md
+# Third-party licenses must ship with the vendored binaries (e.g. ThirdParty/Rhubarb)
+!ThirdParty/**/LICENSE.md
 
 # Wrapper scripts (chemins absolus propres à cette machine)
 Scripts/
