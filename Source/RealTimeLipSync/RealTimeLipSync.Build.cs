@@ -8,7 +8,7 @@ public class RealTimeLipSync : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		// Subfolders organized by responsibility (Rhubarb/, FaceDriver/, Test/), no Public/Private
+		// Subfolders organized by responsibility (Rhubarb/, FaceDriver/, Test/, Http/, Audio/), no Public/Private
 		// split, so declare them explicitly for bare-filename #include to resolve across folders
 		// (UBT does not add module subfolders to the include path by default).
 		PrivateIncludePaths.AddRange(new string[] {
@@ -16,6 +16,7 @@ public class RealTimeLipSync : ModuleRules
 			ModuleDirectory + "/FaceDriver",
 			ModuleDirectory + "/Test",
 			ModuleDirectory + "/Http",
+			ModuleDirectory + "/Audio",
 		});
 
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });

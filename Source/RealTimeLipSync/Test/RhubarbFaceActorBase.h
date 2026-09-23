@@ -114,16 +114,18 @@ protected:
 	// behavior entirely (debug mode).
 	virtual void Tick(float DeltaTime) override;
 
-	// Single entry point for the "WAV bytes received to playable clip to async Rhubarb to Play"
+	// Single entry point for the "audio bytes received to playable clip to async Rhubarb to Play"
 	// pipeline, shared by every subclass that receives audio to process regardless of the source
-	// (local file, HTTP response from /api/v1/ai/tts, etc.). Builds a USoundWaveProcedural without
+	// (local file, HTTP response from /api/v1/ai/tts, etc.). Accepts WAV or MP3: MP3 is decoded
+	// client-side first (AudioFormatUtils), so the backend's default MP3 output works without a
+	// WAV wrapper on the PHP side. Builds a USoundWaveProcedural without
 	// going through an imported asset, writes a temp file, runs Rhubarb on it on a background
 	// thread (blocking process, hence off the game thread), then arms MouthCues and starts Play()
 	// once the mouth cues are ready. Both start together, on purpose, to guarantee audio/viseme
 	// sync. Trace is filled in as the pipeline progresses and logged (AppendLatencySample) once
 	// the animation starts; Source identifies the caller in the CSV (e.g. "Simulate", "Backend",
 	// "DemoIntro", "DemoAsk").
-	void ProcessIncomingAudioChunk(const TArray<uint8>& WavBytes, FLatencyTrace Trace, const FString& Source);
+	void ProcessIncomingAudioChunk(const TArray<uint8>& AudioBytes, FLatencyTrace Trace, const FString& Source);
 
 	// Appends a row to Saved/DynamicSpeech/latency_log.csv (one delta in ms per pipeline step,
 	// network column left empty if Trace.RequestSent/ResponseReceived are 0). Writes the header

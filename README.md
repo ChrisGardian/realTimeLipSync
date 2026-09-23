@@ -53,6 +53,10 @@ Source/RealTimeLipSync/
   Http/         FMiddlewareAuthClient: reproduces the backend's HMAC guard
                 flow (session id/secret, request signing) to call
                 /api/v1/ai/tts and /api/v1/ai/ask.
+  Audio/        AudioFormatUtils: WAV/MP3 detection and client side MP3
+                decoding to 16 bit PCM WAV, using the vendored dr_mp3
+                single header library (dr_mp3.h, compiled in
+                DrMp3Implementation.cpp).
   Test/         Actors: RhubarbTestActor, RhubarbFaceActorBase (shared base),
                 RhubarbMetaHumanActor, DynamicSpeechTestActor, DemoScenarioActor.
 ```
@@ -128,19 +132,24 @@ lip sync delay compensation (`LipSyncDelaySeconds`), and the
 
 ## 6. Audio format expected from the backend
 
-The client currently only accepts **WAV** (RIFF container, 16 bit PCM), never
-MP3. `ProcessIncomingAudioChunk` parses the response body with
-`FWaveModInfo::ReadWaveInfo` and feeds the PCM to
-`USoundWaveProcedural::QueueAudio`; both need a real WAV header, not raw PCM
-and not MP3.
+The client accepts **MP3** (the backend's default output, ElevenLabs
+`mp3_44100_128`) as well as **WAV** (RIFF container, 16 bit PCM). The format is
+detected from the first bytes of the response, so the client sends no `fmt`
+parameter and works with the **unmodified** backend.
 
-ElevenLabs itself never returns a WAV container (its `pcm_*` output formats
-are headerless raw PCM, and its default output is MP3), so any backend
-endpoint that hands audio to this client must wrap the raw PCM in a WAV header
-before responding. The existing `/api/v1/ai/tts?fmt=wav` endpoint
-(`backend/public/index.php`) already does this: it requests
-`output_format=pcm_16000` from ElevenLabs, then calls this function to add the
-header before returning the response:
+`ProcessIncomingAudioChunk` first normalizes the input: MP3 is decoded on the
+client (`AudioFormatUtils::DecodeMp3ToWav`, dr_mp3) to 16 bit PCM and wrapped
+in a WAV header, WAV is used as is. The rest of the pipeline then only deals
+with WAV: `FWaveModInfo::ReadWaveInfo`, `USoundWaveProcedural::QueueAudio`, and
+Rhubarb (which reads WAV/OGG only) all run on that normalized buffer. The MP3
+decoding time is included in the `ChunkReceived → WavParsed` delta of
+`latency_log.csv`.
+
+Raw headerless PCM (ElevenLabs `pcm_*` formats) is **not** accepted. A backend
+that prefers to send uncompressed audio must wrap it in a WAV header first.
+An earlier version of this project did that on the PHP side
+(`/api/v1/ai/tts?fmt=wav`, requesting `output_format=pcm_16000` from
+ElevenLabs); it is no longer needed, but kept here for reference:
 
 ```php
 function wrap_pcm_as_wav(string $pcm, int $sampleRate, int $channels = 1, int $bitsPerSample = 16): string {
@@ -174,9 +183,13 @@ function wrap_pcm_as_wav(string $pcm, int $sampleRate, int $channels = 1, int $b
 }
 ```
 
-Any future endpoint built for Phase 2b (`speak/start`/`speak/chunk`, see
-`TODO.md`) needs to reuse this same function on its audio response, otherwise
-the Unreal client will not be able to parse it.
+Any future endpoint built for Phase 2b (`speak/start`/`speak/chunk`) can
+simply return ElevenLabs' MP3 as is.
+
+**Third party**: `dr_mp3.h` v0.7.3 by David Reid
+([mackron/dr_libs](https://github.com/mackron/dr_libs), commit `5690d46`),
+public domain (Unlicense) or MIT-0 at your choice; license text at the end of
+the header.
 
 ## 7. Known limitations
 

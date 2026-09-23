@@ -4,6 +4,7 @@
 
 #include "Async/Async.h"
 #include "Audio.h"
+#include "AudioFormatUtils.h"
 #include "Components/AudioComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "RhubarbLiveLinkSource.h"
@@ -147,9 +148,27 @@ void ARhubarbFaceActorBase::Tick(float DeltaTime)
 	LiveLinkSource->PushCurveFrame(CurrentCurveValues);
 }
 
-void ARhubarbFaceActorBase::ProcessIncomingAudioChunk(const TArray<uint8>& WavBytes, FLatencyTrace Trace, const FString& Source)
+void ARhubarbFaceActorBase::ProcessIncomingAudioChunk(const TArray<uint8>& AudioBytes, FLatencyTrace Trace, const FString& Source)
 {
 	Trace.ChunkReceived = FPlatformTime::Seconds();
+
+	// Normalize to WAV: everything below (FWaveModInfo, QueueAudio, Rhubarb) only reads 16-bit
+	// PCM WAV. MP3 decoding time lands in the existing ChunkReceived to WavParsed delta of the CSV.
+	TArray<uint8> DecodedWav;
+	const bool bIsMp3 = AudioFormatUtils::IsMp3(AudioBytes);
+	if (bIsMp3)
+	{
+		if (!AudioFormatUtils::DecodeMp3ToWav(AudioBytes, DecodedWav))
+		{
+			return;
+		}
+	}
+	else if (!AudioFormatUtils::IsWav(AudioBytes))
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s: unsupported audio format (%d bytes, expected WAV or MP3)"), *GetClass()->GetName(), AudioBytes.Num());
+		return;
+	}
+	const TArray<uint8>& WavBytes = bIsMp3 ? DecodedWav : AudioBytes;
 
 	// Parse the WAV header and build a playable clip without going through an imported asset.
 	FWaveModInfo WaveInfo;

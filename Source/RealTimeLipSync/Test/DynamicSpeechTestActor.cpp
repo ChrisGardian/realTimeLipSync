@@ -59,8 +59,8 @@ void ADynamicSpeechTestActor::RequestSpeechFromBackend()
 void ADynamicSpeechTestActor::SendSignedTtsRequest()
 {
 	TMap<FString, FString> QueryParams;
+	// No "fmt": the backend defaults to MP3, decoded client-side in ProcessIncomingAudioChunk.
 	QueryParams.Add(TEXT("q"), TextToSpeak);
-	QueryParams.Add(TEXT("fmt"), TEXT("wav"));
 
 	const FString SignedUrl = FMiddlewareAuthClient::BuildSignedUrl(
 		BackendBaseUrl, TEXT("/api/v1/ai/tts"), QueryParams, CachedSid, CachedSecretHex);

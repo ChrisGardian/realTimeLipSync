@@ -69,8 +69,8 @@ private:
 	// longer needs a session now that it makes no network call).
 	void EnsureSession(TFunction<void()> OnReady);
 
-	// Signs and sends GET /api/v1/ai/tts?q=<Text>&fmt=wav, measures the network round trip
-	// (Trace.RequestSent/ResponseReceived), then passes the response (WAV bytes) to
+	// Signs and sends GET /api/v1/ai/tts?q=<Text>, measures the network round trip
+	// (Trace.RequestSent/ResponseReceived), then passes the response (MP3 bytes) to
 	// ProcessIncomingAudioChunk (inherited from ARhubarbFaceActorBase). Source is currently always
 	// "DemoAsk" (the only remaining caller is AskQuestion, once the ChatGPT reply is available);
 	// kept as a parameter in case a future network caller is added.
