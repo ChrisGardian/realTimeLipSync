@@ -1,207 +1,112 @@
-# RealTimeLipSync: Unreal Client
+# RealTimeLipSync
 
-Unreal Engine 5.5 client that drives MetaHuman facial animation (lipsync) from
-audio, using [Rhubarb Lip Sync](https://github.com/DanielSWolf/rhubarb-lip-sync)
-(external CLI, MIT license) rather than a paid plugin.
+Unreal Engine 5.5 client for the Meta Serious Game middleware: a MetaHuman
+patient whose face is animated in real time (lip sync, blinking) from the audio
+returned by the backend. The player asks free-form questions and has to find
+out which disorder the patient suffers from.
 
-> **Scope**: this guide covers opening and running the Unreal project **from
-> source, in the editor**. It complements `LAMP-SETUP-README.md`, which covers
-> the PHP/Slim middleware. Together they let a reviewer reproduce the full
-> demo: middleware running on a LAMP server, Unreal client opened in the
-> editor and pointed at that server (see section 4, `BackendBaseUrl`). No
-> packaged build of this project exists yet (see section 7, known limitations).
+Pipeline: question → `/api/v1/ai/ask` (ChatGPT) → `/api/v1/ai/tts` (ElevenLabs,
+MP3) → MP3 decoded on the client → [Rhubarb Lip Sync](https://github.com/DanielSWolf/rhubarb-lip-sync)
+(mouth shapes) → ARKit curves pushed to the MetaHuman via LiveLink.
 
-## 1. Prerequisites
+The backend is used **unmodified**: the client only needs a running instance
+of the PHP/Slim middleware.
 
-1. **Unreal Engine 5.5**
-2. **Visual Studio 2022** (compiler toolchain for UE C++)
-3. **Rhubarb Lip Sync** binary: download a release from
-   [DanielSWolf/rhubarb-lip-sync](https://github.com/DanielSWolf/rhubarb-lip-sync/releases)
-   and note the path to `rhubarb.exe` (default expected by this project:
-   `C:/Tools/Rhubarb-Lip-Sync-1.14.0-Windows/rhubarb.exe`, but every actor exposes
-   its own `RhubarbExecutablePath` property, see section 4).
-4. **MetaHuman assets** (Ada/Taro or your own) imported via Fab, needed by the
-   actors that animate a MetaHuman face. Not required to test the pipeline on
-   the simple test mesh (`ARhubarbTestActor`, section 4).
-5. Enabled plugins (already set in `RealTimeLipSync.uproject`): `AppleARKitFaceSupport`,
-   `LiveLinkControlRig`, `ModelingToolsEditorMode`.
-6. For Phase 2 (dynamic/backend audio): a running instance of the PHP/Slim
-   middleware. See the separate backend repo's `LAMP-SETUP-README.md` for how to
-   stand one up, or `php -S localhost:8080 -t backend/public` for a quick local run.
+## 1. Run the demo (packaged build)
 
-## 2. Getting the project running
+No Unreal Engine or Visual Studio needed.
 
-```
-Right click RealTimeLipSync.uproject → Generate Visual Studio project files
-Open RealTimeLipSync.sln → build (Development Editor) → launch from VS, or
-double click the .uproject once built.
-```
+1. Unzip the build folder anywhere. If Windows complains about missing runtime
+   libraries, run `Engine/Extras/Redist/en-us/UEPrereqSetup_x64.exe` once.
+2. Start it, pointing it at your backend:
+   ```
+   RealTimeLipSync.exe -BackendUrl=https://your-server.example
+   ```
+   Tip: create a shortcut to `RealTimeLipSync.exe` and append the argument in
+   *Properties → Target*. Add `-log` to open a live log console.
+   Without the argument, `http://localhost:8080` is used.
+3. Click **Szenario starten**: the intro plays, then type questions in the
+   bar at the bottom (Enter or **Fragen**).
 
-A **full rebuild** is required after pulling changes
-that add or rename `UPROPERTY`/`UFUNCTION` members
+The backend must be served at the **root** of its (sub)domain
+(`DocumentRoot` on `backend/public`): request signing covers the full path.
 
-## 3. Source layout
+Logs: `RealTimeLipSync/Saved/Logs/RealTimeLipSync.log`.
+Pipeline timings: `RealTimeLipSync/Saved/DynamicSpeech/latency_log.csv`.
+
+## 2. Open the project from source
+
+Requirements:
+- **Git LFS**, installed *before* cloning (all assets are stored in LFS).
+- **Unreal Engine 5.5** (Epic Games Launcher).
+- **Visual Studio** with the "Game development with C++" workload, only
+  needed to compile the C++ code. The `.vsconfig` file at the root lists the
+  required components (Visual Studio Installer → *More → Import configuration*).
+
+Rhubarb is included in `ThirdParty/Rhubarb/`, nothing else to download.
+
+Double click `RealTimeLipSync.uproject` (accept rebuilding the module if
+asked). The editor opens on the `DemoScenario` map; press Play.
+
+To package: *Platforms → Windows → Package Project* (settings are already
+configured: Development, `DemoScenario` map only).
+
+## 3. Settings
+
+Everything is on the `DemoScenarioActor` in the `DemoScenario` map
+(Details panel, category *RhubarbLipSync*):
+
+| Property | Purpose |
+|---|---|
+| `BackendBaseUrl` | Middleware address (overridden by `-BackendUrl=`) |
+| `QuestionContext` | Role prompt sent with every question (patient, disorder to guess) |
+| `IntroAudioPath` | Intro audio, relative to `Content/` (WAV or MP3) |
+| `ScenarioTitle`, `ScenarioDescription` | Start screen texts |
+| `IntroDelaySeconds` | Pause between the start click and the intro |
+| `bShowDemoUi` | Turn off the start screen/question bar (editor testing) |
+| `LipSyncDelaySeconds`, `VisemeInterpSpeed` | Lip sync timing and smoothing |
+
+Files outside assets that ship with the build: `Content/NonAssets/` (intro
+audio) and `ThirdParty/Rhubarb/`.
+
+### Tuning individual mouth shapes
+
+Rhubarb outputs 9 mouth shapes (A–H, X; see the
+[Rhubarb docs](https://github.com/DanielSWolf/rhubarb-lip-sync#mouth-shapes)).
+Each one is converted to ARKit blendshape weights in
+`VisemeToArKitMapping::GetWeightsForViseme`
+(`Source/RealTimeLipSync/FaceDriver/VisemeToArKitMapping.cpp`), one block per
+shape. If a shape looks wrong (e.g. lips not closed enough on M/B/P = shape
+`A`), adjust its weights there and recompile.
+
+To find good values without recompiling, use the `TestMetaHuman` map: select
+the `RhubarbMetaHumanActor`, enable `bDebugMode` (category *RhubarbLipSync →
+Debug*) and press Play. Then either:
+- keep `bDebugUseManualWeights` on and move the `DebugWeight_*` sliders
+  (0–1, applied live to the face), or
+- turn it off and set `DebugForcedViseme` (A–H, X) to preview what the current
+  table produces for that shape.
+
+Copy the values you like into `GetWeightsForViseme`.
+
+## 4. Source layout
 
 ```
 Source/RealTimeLipSync/
-  Rhubarb/      URhubarbLipSyncRunner: launches rhubarb.exe as an external
-                process (FPlatformProcess::CreateProc), parses the resulting
-                JSON mouth cue timeline (Json/JsonUtilities modules).
-  FaceDriver/   FRhubarbLiveLinkSource (custom ILiveLinkSource pushing ARKit
-                curves), VisemeToArKitMapping (viseme A to X → ARKit blendshape
-                weights table), FIdleFaceAnimator (blink / idle micro movement).
-  Http/         FMiddlewareAuthClient: reproduces the backend's HMAC guard
-                flow (session id/secret, request signing) to call
-                /api/v1/ai/tts and /api/v1/ai/ask.
-  Audio/        AudioFormatUtils: WAV/MP3 detection and client side MP3
-                decoding to 16 bit PCM WAV, using the vendored dr_mp3
-                single header library (dr_mp3.h, compiled in
-                DrMp3Implementation.cpp).
-  Test/         Actors: RhubarbTestActor, RhubarbFaceActorBase (shared base),
-                RhubarbMetaHumanActor, DynamicSpeechTestActor, DemoScenarioActor.
+  Rhubarb/     runs rhubarb.exe and parses its mouth cue JSON
+  Audio/       WAV/MP3 detection, MP3 decoding (dr_mp3)
+  FaceDriver/  LiveLink source, mouth shape → ARKit weights, blinking
+  Http/        backend session + request signing (HMAC)
+  UI/          start screen and question bar (Slate)
+  Test/        DemoScenarioActor (the demo) and the earlier test actors
 ```
 
-`RealTimeLipSync.Build.cs` declares each of the above subfolders in
-`PrivateIncludePaths`. UBT does not add module subfolders to the include path
-by default, so bare `#include "SomeHeader.h"` across folders depends on that.
+The other maps (`TestMap`, `TestMetaHuman`, `TestStreaming`) are development
+test benches from the thesis and are not part of the demo.
 
-## 4. Actors and test maps
+## 5. Third party
 
-### TestMap: ARhubarbTestActor
-
-Simple 6 to 9 blendshape test mesh (Blender shape keys `Viseme_A`…`Viseme_X`).
-Validates the Rhubarb → JSON → morph target pipeline without MetaHuman complexity.
-
-### TestMetaHuman: ARhubarbMetaHumanActor
-
-Phase 1: plays a pre recorded, **imported** `USoundWave` (`SoundToPlay`), runs
-Rhubarb blocking (local file), drives a MetaHuman via LiveLink/ARKit curves.
-Has a debug mode (`bDebugMode`) with 14 manual weight sliders to hand calibrate
-`VisemeToArKitMapping`.
-
-### TestStreaming / TestStreamingMap: ADynamicSpeechTestActor
-
-Phase 2a: either simulates a backend chunk from a local `.wav`
-(`SimulateIncomingChunk`) or calls the real backend (`RequestSpeechFromBackend`,
-signed `GET /api/v1/ai/tts`). Runs Rhubarb async off the game thread.
-
-### DemoScenario / TestDemoScenario: ADemoScenarioActor
-
-"Near finished product" demo: `PlayIntro()` plays a pre generated, imported
-intro line (no network); `AskQuestion()` sends free text to `/api/v1/ai/ask`
-(ChatGPT) then speaks the reply through the full TTS/Rhubarb pipeline.
-
-`ARhubarbMetaHumanActor`, `ADynamicSpeechTestActor`, and `ADemoScenarioActor`
-all derive from **`ARhubarbFaceActorBase`**, which owns the shared LiveLink
-setup, viseme sampling/smoothing (`VisemeInterpSpeed`), blink (`FIdleFaceAnimator`),
-lip sync delay compensation (`LipSyncDelaySeconds`), and the
-"WAV bytes → temp file → async Rhubarb → `Play()`" pipeline
-(`ProcessIncomingAudioChunk`) with latency tracing
-(`Saved/DynamicSpeech/latency_log.csv`).
-
-### Per actor setup checklist
-
-1. **`RhubarbExecutablePath`** (every actor that runs Rhubarb): point it at
-   your local `rhubarb.exe`.
-2. **MetaHuman actors** (`RhubarbMetaHumanActor`/`DynamicSpeechTestActor`/`DemoScenarioActor`):
-   on the MetaHuman Blueprint (`BP_Ada`/`BP_Taro`) enable **"Use ARKit Face"**
-   and set **"ARKit Face Subject"** to match the actor's `LiveLinkSubjectName`
-   (default `"RhubarbLipSync"` everywhere, so you generally don't need to touch it
-   unless two such actors are alive in the same map at once). Assign the
-   MetaHuman actor to `BodyActor` on the C++ actor if you want the idle body
-   animation (`IdleBodyAnimation`, retargeted Mixamo) to play.
-3. **`DynamicSpeechTestActor` / `DemoScenarioActor`**: set `BackendBaseUrl`
-   (default `http://localhost:8080`, scheme+host only, no `/api/v1`) to wherever
-   your backend instance runs.
-4. **`RhubarbMetaHumanActor` / `DemoScenarioActor`**: assign an imported
-   `USoundWave` to `SoundToPlay`. Its source `.wav` path is resolved from
-   `AssetImportData`, which is **editor only** and will not work in a packaged
-   build (see section 7).
-
-## 5. Running a quick smoke test
-
-1. Open `TestMap`, place/select `BP_RhubarbTest` (or the C++ actor directly),
-   assign a `.wav`, press Play. Mouth cues should print to the log and morph
-   targets should animate.
-2. Open `TestMetaHuman`, assign `SoundToPlay`, verify "Use ARKit Face" is set
-   on the MetaHuman, press Play. The MetaHuman's mouth should move in sync.
-3. For the backend path: start the PHP backend locally, open `TestStreaming`,
-   set `BackendBaseUrl`, click `RequestSpeechFromBackend` in the Details panel
-   (editor button) while in Play. Check `Saved/DynamicSpeech/latency_log.csv`
-   for the recorded pipeline timings.
-
-## 6. Audio format expected from the backend
-
-The client accepts **MP3** (the backend's default output, ElevenLabs
-`mp3_44100_128`) as well as **WAV** (RIFF container, 16 bit PCM). The format is
-detected from the first bytes of the response, so the client sends no `fmt`
-parameter and works with the **unmodified** backend.
-
-`ProcessIncomingAudioChunk` first normalizes the input: MP3 is decoded on the
-client (`AudioFormatUtils::DecodeMp3ToWav`, dr_mp3) to 16 bit PCM and wrapped
-in a WAV header, WAV is used as is. The rest of the pipeline then only deals
-with WAV: `FWaveModInfo::ReadWaveInfo`, `USoundWaveProcedural::QueueAudio`, and
-Rhubarb (which reads WAV/OGG only) all run on that normalized buffer. The MP3
-decoding time is included in the `ChunkReceived → WavParsed` delta of
-`latency_log.csv`.
-
-Raw headerless PCM (ElevenLabs `pcm_*` formats) is **not** accepted. A backend
-that prefers to send uncompressed audio must wrap it in a WAV header first.
-An earlier version of this project did that on the PHP side
-(`/api/v1/ai/tts?fmt=wav`, requesting `output_format=pcm_16000` from
-ElevenLabs); it is no longer needed, but kept here for reference:
-
-```php
-function wrap_pcm_as_wav(string $pcm, int $sampleRate, int $channels = 1, int $bitsPerSample = 16): string {
-    $byteRate   = $sampleRate * $channels * ($bitsPerSample / 8);
-    $blockAlign = $channels * ($bitsPerSample / 8);
-
-    // ElevenLabs' PCM stream can end on a size not aligned to blockAlign; truncate
-    // to the nearest full sample or QueueAudio's "BufferSize % SampleByteSize == 0"
-    // ensure fires on the Unreal side.
-    $alignedLen = strlen($pcm) - (strlen($pcm) % $blockAlign);
-    if ($alignedLen !== strlen($pcm)) {
-        $pcm = substr($pcm, 0, $alignedLen);
-    }
-    $dataLen = strlen($pcm);
-
-    $header  = 'RIFF';
-    $header .= pack('V', 36 + $dataLen);
-    $header .= 'WAVE';
-    $header .= 'fmt ';
-    $header .= pack('V', 16);
-    $header .= pack('v', 1);
-    $header .= pack('v', $channels);
-    $header .= pack('V', $sampleRate);
-    $header .= pack('V', (int)$byteRate);
-    $header .= pack('v', (int)$blockAlign);
-    $header .= pack('v', $bitsPerSample);
-    $header .= 'data';
-    $header .= pack('V', $dataLen);
-
-    return $header . $pcm;
-}
-```
-
-Any future endpoint built for Phase 2b (`speak/start`/`speak/chunk`) can
-simply return ElevenLabs' MP3 as is.
-
-**Third party**: `dr_mp3.h` v0.7.3 by David Reid
-([mackron/dr_libs](https://github.com/mackron/dr_libs), commit `5690d46`),
-public domain (Unlicense) or MIT-0 at your choice; license text at the end of
-the header.
-
-## 7. Known limitations
-
-1. `ARhubarbTestActor::SoundToPlay` and `ARhubarbMetaHumanActor`/`ADemoScenarioActor`'s
-   `SoundToPlay` resolve their disk path via `USoundWave::AssetImportData`
-   (`WITH_EDITORONLY_DATA`). This breaks once the game is packaged. A manual
-   path field or bundling the source `.wav` outside `Content/` will be needed
-   before any packaged build.
-2. Rhubarb processes whole audio files, not a live stream; Phase 2's chunk by
-   chunk approach (`speak/start`/`speak/chunk`, not yet implemented on the
-   backend) works around this by running Rhubarb once per short chunk rather
-   than on a continuous stream.
-3. `FPlatformMisc::GetSHA256Signature` is not implemented on Windows in this
-   engine version, so `MiddlewareAuthClient` implements SHA-256/HMAC by hand
-   rather than using an engine API.
+- [Rhubarb Lip Sync](https://github.com/DanielSWolf/rhubarb-lip-sync) 1.14.0,
+  MIT (dependencies under BSD/Boost licenses), see `ThirdParty/Rhubarb/LICENSE.md`.
+- [dr_mp3](https://github.com/mackron/dr_libs) 0.7.3, public domain / MIT-0,
+  see the end of `Source/RealTimeLipSync/Audio/dr_mp3.h`.
