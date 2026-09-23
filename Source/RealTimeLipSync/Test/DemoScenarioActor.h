@@ -6,6 +6,8 @@
 #include "RhubarbFaceActorBase.h"
 #include "DemoScenarioActor.generated.h"
 
+class SDemoScenarioWidget;
+
 // "Near-finished product" demo actor: gives the
 // impression of a client talking to a real backend rather than an isolated technical test.
 // Two entry points:
@@ -47,17 +49,50 @@ public:
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Demo")
 	FString QuestionText = TEXT("Haben Sie das Gefühl, dass es Ihnen inzwischen besser geht?");
 
-	// Optional context sent with the question (ctx= parameter of /api/v1/ai/ask). Can stay empty;
-	// may later reuse a scenario scene's "freeContext" if needed.
-	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Demo")
-	FString QuestionContext;
+	// Context sent with every question (ctx= parameter of /api/v1/ai/ask). Without it, the backend's
+	// system prompt answers as a neutral advisor, not as the patient. Demo goal (agreed with Prof.
+	// Dopatka): the MetaHuman is the patient and the player has to guess the disorder, so the
+	// diagnosis must never be named. Default case = MDE, matching the intro line (01-intro.json,
+	// text_cases.MDE); adapted from 05-freeend.json's "freeContext". Edit freely.
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Demo", meta = (MultiLine = true))
+	FString QuestionContext = TEXT("Rollenspiel: Du bist eine Patientin in einem psychologischen Erstgespräch und leidest an einer depressiven Episode. Nenne niemals eine Diagnose und verwende keine Fachbegriffe: Die fragende Person soll selbst herausfinden, woran du leidest. Antworte als Patientin in der Ich-Form, nachdenklich und persönlich, in einfacher Alltagssprache, und sprich die fragende Person mit \"Sie\" an.");
 
 	// Sends QuestionText to /api/v1/ai/ask, then makes the avatar speak the reply. Same TTS path
 	// as PlayIntro, once the reply text is available.
 	UFUNCTION(CallInEditor, Category = "RhubarbLipSync|Demo")
 	void AskQuestion();
 
+	// Packaged demo flow: start screen, then question bar (SDemoScenarioWidget). Can be turned off
+	// to keep the raw editor workflow (CallInEditor buttons only, no overlay).
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Demo UI")
+	bool bShowDemoUi = true;
+
+	// Delay between the click on the start button and PlayIntro.
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Demo UI")
+	float IntroDelaySeconds = 1.f;
+
+	// Start screen texts (scenario 0003, szenario.json in the backend repo).
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Demo UI")
+	FText ScenarioTitle = INVTEXT("Psychologische Gesprächssimulation");
+
+	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Demo UI", meta = (MultiLine = true))
+	FText ScenarioDescription = INVTEXT("Natürliches Diagnosetraining: Sie führen ein Erstgespräch mit einer virtuellen Patientin. Stellen Sie Ihre Fragen frei per Texteingabe und finden Sie heraus, an welcher psychischen Störung sie leidet. Die Antworten werden live von ChatGPT generiert, von ElevenLabs vertont und lippensynchron animiert.");
+
+protected:
+	// Creates the demo UI (if bShowDemoUi) and gives it mouse/keyboard focus.
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 private:
+	// Start button: plays the intro after IntroDelaySeconds.
+	void HandleStartScenario();
+
+	// Question bar: same path as the AskQuestion editor button, with the typed text.
+	void HandleAskQuestion(const FString& Question);
+
+	TSharedPtr<SDemoScenarioWidget> DemoWidget;
+	FTimerHandle IntroTimerHandle;
+
 	// If CachedSid/CachedSecretHex are already valid, runs OnReady right away; otherwise fetches
 	// a session first (GET /session/id then /session/secret, see
 	// FMiddlewareAuthClient::RequestSession) and caches it. Used by AskQuestion (PlayIntro no

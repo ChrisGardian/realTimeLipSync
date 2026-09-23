@@ -3,6 +3,8 @@
 #include "DemoScenarioActor.h"
 
 #include "Dom/JsonObject.h"
+#include "Engine/GameViewportClient.h"
+#include "GameFramework/PlayerController.h"
 #include "HAL/PlatformTime.h"
 #include "HttpModule.h"
 #include "Interfaces/IHttpRequest.h"
@@ -10,14 +12,76 @@
 #include "MiddlewareAuthClient.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "SDemoScenarioWidget.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "TimerManager.h"
 
 ADemoScenarioActor::ADemoScenarioActor()
 {
 	// Same value as ADynamicSpeechTestActor: calibrated for the same TTS to Rhubarb to LiveLink
 	// pipeline, so the same downstream LiveLink/AnimBP latency applies here.
 	LipSyncDelaySeconds = 0.3f;
+}
+
+void ADemoScenarioActor::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UGameViewportClient* Viewport = GetWorld()->GetGameViewport();
+	if (!bShowDemoUi || !Viewport)
+	{
+		return;
+	}
+
+	DemoWidget = SNew(SDemoScenarioWidget)
+		.ScenarioTitle(ScenarioTitle)
+		.ScenarioDescription(ScenarioDescription)
+		.OnStartScenario(FOnDemoStartScenario::CreateUObject(this, &ADemoScenarioActor::HandleStartScenario))
+		.OnAskQuestion(FOnDemoAskQuestion::CreateUObject(this, &ADemoScenarioActor::HandleAskQuestion));
+	Viewport->AddViewportWidgetContent(DemoWidget.ToSharedRef());
+
+	// No gameplay input in this demo: the mouse and keyboard only drive the UI.
+	if (APlayerController* PlayerController = GetWorld()->GetFirstPlayerController())
+	{
+		PlayerController->bShowMouseCursor = true;
+		FInputModeUIOnly InputMode;
+		InputMode.SetWidgetToFocus(DemoWidget);
+		PlayerController->SetInputMode(InputMode);
+	}
+}
+
+void ADemoScenarioActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	GetWorldTimerManager().ClearTimer(IntroTimerHandle);
+
+	if (DemoWidget.IsValid())
+	{
+		if (UGameViewportClient* Viewport = GetWorld()->GetGameViewport())
+		{
+			Viewport->RemoveViewportWidgetContent(DemoWidget.ToSharedRef());
+		}
+		DemoWidget.Reset();
+	}
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void ADemoScenarioActor::HandleStartScenario()
+{
+	// SetTimer with a rate <= 0 clears the timer instead of firing it, hence the direct call.
+	if (IntroDelaySeconds <= 0.f)
+	{
+		PlayIntro();
+		return;
+	}
+	GetWorldTimerManager().SetTimer(IntroTimerHandle, this, &ADemoScenarioActor::PlayIntro, IntroDelaySeconds, /*bLoop*/ false);
+}
+
+void ADemoScenarioActor::HandleAskQuestion(const FString& Question)
+{
+	QuestionText = Question;
+	AskQuestion();
 }
 
 void ADemoScenarioActor::PlayIntro()

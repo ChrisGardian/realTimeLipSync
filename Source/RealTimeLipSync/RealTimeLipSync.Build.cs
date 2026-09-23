@@ -8,7 +8,7 @@ public class RealTimeLipSync : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		// Subfolders organized by responsibility (Rhubarb/, FaceDriver/, Test/, Http/, Audio/), no Public/Private
+		// Subfolders organized by responsibility (Rhubarb/, FaceDriver/, Test/, Http/, Audio/, UI/), no Public/Private
 		// split, so declare them explicitly for bare-filename #include to resolve across folders
 		// (UBT does not add module subfolders to the include path by default).
 		PrivateIncludePaths.AddRange(new string[] {
@@ -17,6 +17,7 @@ public class RealTimeLipSync : ModuleRules
 			ModuleDirectory + "/Test",
 			ModuleDirectory + "/Http",
 			ModuleDirectory + "/Audio",
+			ModuleDirectory + "/UI",
 		});
 
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });
@@ -28,8 +29,8 @@ public class RealTimeLipSync : ModuleRules
 		// LICENSE.md (MIT + BSD dependencies, must ship with the binary). "..." = recursive.
 		RuntimeDependencies.Add("$(ProjectDir)/ThirdParty/Rhubarb/...");
 
-		// Uncomment if you are using Slate UI
-		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+		// Pure Slate demo UI (UI/SDemoScenarioWidget)
+		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 		
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
