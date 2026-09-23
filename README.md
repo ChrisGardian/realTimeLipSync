@@ -25,8 +25,9 @@ No Unreal Engine or Visual Studio needed.
    Tip: create a shortcut to `RealTimeLipSync.exe` and append the argument in
    *Properties → Target*. Add `-log` to open a live log console.
    Without the argument, `http://localhost:8080` is used.
+   The game runs fullscreen; add `-windowed -ResX=1600 -ResY=900` for a window.
 3. Click **Szenario starten**: the intro plays, then type questions in the
-   bar at the bottom (Enter or **Fragen**).
+   bar at the bottom (Enter or **Fragen**). **Beenden** (top right) quits.
 
 The backend must be served at the **root** of its (sub)domain
 (`DocumentRoot` on `backend/public`): request signing covers the full path.

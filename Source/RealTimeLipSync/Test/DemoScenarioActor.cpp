@@ -9,6 +9,7 @@
 #include "HttpModule.h"
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "MiddlewareAuthClient.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
@@ -50,7 +51,8 @@ void ADemoScenarioActor::BeginPlay()
 		.ScenarioTitle(ScenarioTitle)
 		.ScenarioDescription(ScenarioDescription)
 		.OnStartScenario(FOnDemoStartScenario::CreateUObject(this, &ADemoScenarioActor::HandleStartScenario))
-		.OnAskQuestion(FOnDemoAskQuestion::CreateUObject(this, &ADemoScenarioActor::HandleAskQuestion));
+		.OnAskQuestion(FOnDemoAskQuestion::CreateUObject(this, &ADemoScenarioActor::HandleAskQuestion))
+		.OnQuit(FOnDemoQuit::CreateUObject(this, &ADemoScenarioActor::HandleQuit));
 	Viewport->AddViewportWidgetContent(DemoWidget.ToSharedRef());
 
 	// No gameplay input in this demo: the mouse and keyboard only drive the UI.
@@ -94,6 +96,11 @@ void ADemoScenarioActor::HandleAskQuestion(const FString& Question)
 {
 	QuestionText = Question;
 	AskQuestion();
+}
+
+void ADemoScenarioActor::HandleQuit()
+{
+	UKismetSystemLibrary::QuitGame(this, GetWorld()->GetFirstPlayerController(), EQuitPreference::Quit, /*bIgnorePlatformRestrictions*/ false);
 }
 
 void ADemoScenarioActor::PlayIntro()

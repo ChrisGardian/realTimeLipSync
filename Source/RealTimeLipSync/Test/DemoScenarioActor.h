@@ -92,6 +92,9 @@ private:
 	// Question bar: same path as the AskQuestion editor button, with the typed text.
 	void HandleAskQuestion(const FString& Question);
 
+	// Quit button: closes the game (ends Play in the editor).
+	void HandleQuit();
+
 	TSharedPtr<SDemoScenarioWidget> DemoWidget;
 	FTimerHandle IntroTimerHandle;
 

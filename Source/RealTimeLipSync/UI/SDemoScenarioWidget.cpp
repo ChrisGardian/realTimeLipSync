@@ -9,6 +9,7 @@
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
+#include "Widgets/SOverlay.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 
@@ -26,98 +27,126 @@ void SDemoScenarioWidget::Construct(const FArguments& InArgs)
 {
 	OnStartScenario = InArgs._OnStartScenario;
 	OnAskQuestion = InArgs._OnAskQuestion;
+	OnQuit = InArgs._OnQuit;
 
 	ChildSlot
 	[
-		SAssignNew(ScreenSwitcher, SWidgetSwitcher)
-		.WidgetIndex(StartScreenIndex)
+		SNew(SOverlay)
 
-		// 0. Start screen, covers the whole scene.
-		+ SWidgetSwitcher::Slot()
+		+ SOverlay::Slot()
 		[
-			SNew(SBorder)
-			.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-			.BorderBackgroundColor(FLinearColor(0.02f, 0.02f, 0.03f, 1.f))
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
+			SAssignNew(ScreenSwitcher, SWidgetSwitcher)
+			.WidgetIndex(StartScreenIndex)
+
+			// 0. Start screen, covers the whole scene.
+			+ SWidgetSwitcher::Slot()
 			[
-				SNew(SBox)
-				.MaxDesiredWidth(StartScreenMaxWidth)
+				SNew(SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+				.BorderBackgroundColor(FLinearColor(0.02f, 0.02f, 0.03f, 1.f))
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
 				[
-					SNew(SVerticalBox)
-
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(0.f, 0.f, 0.f, 16.f)
+					SNew(SBox)
+					.MaxDesiredWidth(StartScreenMaxWidth)
 					[
-						SNew(STextBlock)
-						.Text(InArgs._ScenarioTitle)
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 32))
-						.Justification(ETextJustify::Center)
-						.WrapTextAt(StartScreenWrapWidth)
-					]
+						SNew(SVerticalBox)
 
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(0.f, 0.f, 0.f, 32.f)
-					[
-						SNew(STextBlock)
-						.Text(InArgs._ScenarioDescription)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 16))
-						.Justification(ETextJustify::Center)
-						// Fixed width rather than AutoWrapText: auto wrap uses the previous frame's
-						// geometry and overflows slightly (lines clipped on both sides) when centered.
-						.WrapTextAt(StartScreenWrapWidth)
-					]
-
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.HAlign(HAlign_Center)
-					[
-						SNew(SButton)
-						.ContentPadding(FMargin(24.f, 10.f))
-						.OnClicked(this, &SDemoScenarioWidget::HandleStartClicked)
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.f, 0.f, 0.f, 16.f)
 						[
 							SNew(STextBlock)
-							.Text(INVTEXT("Szenario starten"))
-							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 18))
+							.Text(InArgs._ScenarioTitle)
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 32))
+							.Justification(ETextJustify::Center)
+							.WrapTextAt(StartScreenWrapWidth)
+						]
+
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.f, 0.f, 0.f, 32.f)
+						[
+							SNew(STextBlock)
+							.Text(InArgs._ScenarioDescription)
+							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 16))
+							.Justification(ETextJustify::Center)
+							// Fixed width rather than AutoWrapText: auto wrap uses the previous frame's
+							// geometry and overflows slightly (lines clipped on both sides) when centered.
+							.WrapTextAt(StartScreenWrapWidth)
+						]
+
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.HAlign(HAlign_Center)
+						[
+							SNew(SButton)
+							.ContentPadding(FMargin(24.f, 10.f))
+							.OnClicked(this, &SDemoScenarioWidget::HandleStartClicked)
+							[
+								SNew(STextBlock)
+								.Text(INVTEXT("Szenario starten"))
+								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 18))
+							]
 						]
 					]
 				]
 			]
-		]
 
-		// 1. Question bar at the bottom; the rest of the screen lets the scene show through.
-		+ SWidgetSwitcher::Slot()
-		.VAlign(VAlign_Bottom)
-		.Padding(40.f, 0.f, 40.f, 40.f)
-		[
-			SNew(SHorizontalBox)
-
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.f)
-			.Padding(0.f, 0.f, 8.f, 0.f)
+			// 1. Question bar at the bottom; the rest of the screen lets the scene show through.
+			+ SWidgetSwitcher::Slot()
+			.VAlign(VAlign_Bottom)
+			.Padding(40.f, 0.f, 40.f, 40.f)
 			[
-				SAssignNew(QuestionBox, SEditableTextBox)
-				.HintText(INVTEXT("Ihre Frage ..."))
-				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 16))
-				.OnTextCommitted(this, &SDemoScenarioWidget::HandleQuestionCommitted)
-			]
+				SNew(SHorizontalBox)
 
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SButton)
-				.ContentPadding(FMargin(16.f, 6.f))
-				.OnClicked(this, &SDemoScenarioWidget::HandleAskClicked)
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.f)
+				.Padding(0.f, 0.f, 8.f, 0.f)
 				[
-					SNew(STextBlock)
-					.Text(INVTEXT("Fragen"))
-					.Font(FCoreStyle::GetDefaultFontStyle("Bold", 16))
+					SAssignNew(QuestionBox, SEditableTextBox)
+					.HintText(INVTEXT("Ihre Frage ..."))
+					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 16))
+					.OnTextCommitted(this, &SDemoScenarioWidget::HandleQuestionCommitted)
+				]
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.ContentPadding(FMargin(16.f, 6.f))
+					.OnClicked(this, &SDemoScenarioWidget::HandleAskClicked)
+					[
+						SNew(STextBlock)
+						.Text(INVTEXT("Fragen"))
+						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 16))
+					]
 				]
 			]
 		]
+
+		// Quit button, top right, on top of both screens (the build runs fullscreen by default).
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Top)
+		.Padding(0.f, 20.f, 20.f, 0.f)
+		[
+			SNew(SButton)
+			.ContentPadding(FMargin(12.f, 4.f))
+			.OnClicked(this, &SDemoScenarioWidget::HandleQuitClicked)
+			[
+				SNew(STextBlock)
+				.Text(INVTEXT("Beenden"))
+				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 14))
+			]
+		]
 	];
+}
+
+FReply SDemoScenarioWidget::HandleQuitClicked()
+{
+	OnQuit.ExecuteIfBound();
+	return FReply::Handled();
 }
 
 FReply SDemoScenarioWidget::HandleStartClicked()
