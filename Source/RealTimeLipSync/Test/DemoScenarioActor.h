@@ -6,25 +6,20 @@
 #include "RhubarbFaceActorBase.h"
 #include "DemoScenarioActor.generated.h"
 
-class USoundWave;
-
 // "Near-finished product" demo actor: gives the
 // impression of a client talking to a real backend rather than an isolated technical test.
 // Two entry points:
 //   - PlayIntro(): a fixed intro line taken from a real backend scenario (content/scenarios/
-//     0003/scenes/01-intro.json), generated ONCE via /api/v1/ai/tts and then imported as an
-//     asset (SoundToPlay), so no network call on every Play. Same pattern as
-//     ARhubarbMetaHumanActor (Phase 1): disk path resolved via AssetImportData (editor-only),
-//     Rhubarb runs blocking since it is a local file.
+//     0003/scenes/01-intro.json), generated ONCE via /api/v1/ai/tts and shipped as a plain audio
+//     file (IntroAudioPath), so no network call on every Play. Goes through the same
+//     ProcessIncomingAudioChunk pipeline as network replies.
 //   - AskQuestion(): a free-form question sent to ChatGPT (/api/v1/ai/ask). The reply is
 //     necessarily dynamic (different text every time), so it goes through the full network
 //     pipeline (ai/tts to async ProcessIncomingAudioChunk, inherited from ARhubarbFaceActorBase).
 // The scenario is fixed and hardcoded for now: no call to /api/v1/scenario/start or
 // /scenario/scene, since there is no point dynamically fetching content that does not change yet.
 //
-// Only AskQuestion logs to Saved/DynamicSpeech/latency_log.csv ("source" = "DemoAsk"). PlayIntro
-// no longer goes through ProcessIncomingAudioChunk now that it plays a local asset, so there is
-// nothing left to measure on its network/pipeline side.
+// Both log to Saved/DynamicSpeech/latency_log.csv: "DemoIntro" (no network column) and "DemoAsk".
 UCLASS()
 class REALTIMELIPSYNC_API ADemoScenarioActor : public ARhubarbFaceActorBase
 {
@@ -37,14 +32,14 @@ public:
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Backend")
 	FString BackendBaseUrl = TEXT("http://localhost:8080");
 
-	// Intro audio pre-generated and imported once and for all (generated via PlayIntro/ai-tts with
-	// bKeepTempAudio=true, then the kept .wav dragged from Saved/DynamicSpeech/ into the Content
-	// Browser). Its original disk path is resolved automatically from its import metadata, like
-	// ARhubarbMetaHumanActor::SoundToPlay.
+	// Intro audio generated once via ai/tts (same voice as the live replies) and shipped as a plain
+	// file, relative to the Content dir. Content/NonAssets is listed in "Additional Non-Asset
+	// Directories to Copy" so it is staged into packaged builds. WAV or MP3.
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Demo")
-	USoundWave* SoundToPlay = nullptr;
+	FString IntroAudioPath = TEXT("NonAssets/Audio/IntroScenario3.wav");
 
-	// Runs Rhubarb on SoundToPlay (blocking, local file) and plays it. No network call.
+	// Loads IntroAudioPath and plays it through ProcessIncomingAudioChunk (async Rhubarb, logged
+	// as "DemoIntro" in latency_log.csv). No network call.
 	UFUNCTION(CallInEditor, Category = "RhubarbLipSync|Demo")
 	void PlayIntro();
 

@@ -2,20 +2,16 @@
 
 #include "DemoScenarioActor.h"
 
-#include "Components/AudioComponent.h"
 #include "Dom/JsonObject.h"
 #include "HAL/PlatformTime.h"
 #include "HttpModule.h"
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
 #include "MiddlewareAuthClient.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
-#include "Sound/SoundWave.h"
-
-#if WITH_EDITORONLY_DATA
-#include "EditorFramework/AssetImportData.h"
-#endif
 
 ADemoScenarioActor::ADemoScenarioActor()
 {
@@ -26,41 +22,18 @@ ADemoScenarioActor::ADemoScenarioActor()
 
 void ADemoScenarioActor::PlayIntro()
 {
-	// Same pattern as ARhubarbMetaHumanActor::BeginPlay (Phase 1): SoundToPlay is an asset imported
-	// once and for all, so its original disk path (needed by Rhubarb) is resolved from its import
-	// metadata instead of repeating a network call every time.
-	if (!SoundToPlay)
+	// Plain file shipped with the build (no imported asset, whose source path is editor-only data),
+	// fed to the same pipeline as network responses: same decoding, async Rhubarb and latency log.
+	const FString AudioFilePath = FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir(), IntroAudioPath);
+
+	TArray<uint8> AudioBytes;
+	if (!FFileHelper::LoadFileToArray(AudioBytes, *AudioFilePath))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("DemoScenarioActor: SoundToPlay is not set"));
+		UE_LOG(LogTemp, Warning, TEXT("DemoScenarioActor: could not read intro audio %s"), *AudioFilePath);
 		return;
 	}
 
-	FString AudioFilePath;
-#if WITH_EDITORONLY_DATA
-	if (SoundToPlay->AssetImportData)
-	{
-		AudioFilePath = SoundToPlay->AssetImportData->GetFirstFilename();
-	}
-#endif
-
-	if (AudioFilePath.IsEmpty())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("DemoScenarioActor: could not resolve source file path for %s (editor-only data)"), *SoundToPlay->GetName());
-		return;
-	}
-
-	// Local file: Rhubarb can run blocking directly on the game thread, no need for the AsyncTask
-	// that ProcessIncomingAudioChunk uses for network responses.
-	URhubarbLipSyncRunner* Runner = NewObject<URhubarbLipSyncRunner>(this);
-	if (!Runner->RunOnAudioFile(AudioFilePath, RhubarbExecutablePath, MouthCues))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("DemoScenarioActor: RunOnAudioFile failed for %s"), *AudioFilePath);
-		return;
-	}
-
-	ElapsedPlaybackTime = 0.f;
-	AudioPlayback->SetSound(SoundToPlay);
-	AudioPlayback->Play();
+	ProcessIncomingAudioChunk(AudioBytes, FLatencyTrace(), TEXT("DemoIntro"));
 }
 
 void ADemoScenarioActor::AskQuestion()
