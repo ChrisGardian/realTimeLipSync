@@ -31,6 +31,8 @@ public:
 	ADemoScenarioActor();
 
 	// PHP middleware root (scheme+host, no /api/v1). Same meaning as on ADynamicSpeechTestActor.
+	// Overridden at launch by -BackendUrl=... (packaged builds). The backend must be served at the
+	// root of its (sub)domain: hmac_guard signs the full request path and Slim has no base path.
 	UPROPERTY(EditAnywhere, Category = "RhubarbLipSync|Backend")
 	FString BackendBaseUrl = TEXT("http://localhost:8080");
 

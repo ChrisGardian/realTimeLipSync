@@ -10,7 +10,9 @@
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
 #include "MiddlewareAuthClient.h"
+#include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
+#include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "SDemoScenarioWidget.h"
 #include "Serialization/JsonReader.h"
@@ -27,6 +29,16 @@ ADemoScenarioActor::ADemoScenarioActor()
 void ADemoScenarioActor::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Lets a packaged build target another backend without the editor, e.g.
+	// RealTimeLipSync.exe -BackendUrl=https://example.org (overrides the Details panel value).
+	FString CommandLineUrl;
+	if (FParse::Value(FCommandLine::Get(), TEXT("BackendUrl="), CommandLineUrl))
+	{
+		BackendBaseUrl = CommandLineUrl;
+	}
+	BackendBaseUrl.RemoveFromEnd(TEXT("/"));
+	UE_LOG(LogTemp, Log, TEXT("DemoScenarioActor: backend = %s"), *BackendBaseUrl);
 
 	UGameViewportClient* Viewport = GetWorld()->GetGameViewport();
 	if (!bShowDemoUi || !Viewport)
